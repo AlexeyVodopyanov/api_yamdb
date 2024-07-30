@@ -5,36 +5,6 @@ from django.db import models
 User = get_user_model()
 
 
-class Title(models.Model):
-    """Модель произведений"""
-    name = models.CharField(max_length=200, verbose_name='Название')
-    year = models.IntegerField(verbose_name='год')
-    description = models.TextField(
-        max_length=200,
-        blank=True,null=True,
-        verbose_name='Описание'
-    )
-    genre = models.ManyToManyField(
-        Genre,
-        related_name='titles',
-        verbose_name='Жанр'
-    )
-    category = models.ForeignKey(
-        Category,
-        null=True,
-        on_delete=models.SET_NULL,
-        related_name='titles',
-        verbose_name='Категория'
-    )
-
-    class Meta:
-        verbose_name = 'Произведение'
-        verbose_name_plural = 'Произведения'
-
-    def __str__(self):
-        return self.name
-
-
 class Category(models.Model):
     """"Модель категории произведений"""
     name = models.CharField(
@@ -75,11 +45,55 @@ class Genre(models.Model):
 
     def __str__(self):
         return self.name
+    
+
+class Title(models.Model):
+    """Модель произведений"""
+    name = models.CharField(max_length=200, verbose_name='Название')
+    year = models.IntegerField(verbose_name='год')
+    description = models.TextField(
+        max_length=200,
+        blank=True,null=True,
+        verbose_name='Описание'
+    )
+    genre = models.ManyToManyField(
+        Genre,
+        related_name='titles',
+        verbose_name='Жанр'
+    )
+    category = models.ForeignKey(
+        Category,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='titles',
+        verbose_name='Категория'
+    )
+
+    class Meta:
+        verbose_name = 'Произведение'
+        verbose_name_plural = 'Произведения'
+
+    def __str__(self):
+        return self.name
 
 
-class TitleGenre(models.Model):  # Связующий класс произведений и жанров.
-    # Создавать не обязательно, но наставник рекомендовал. Создает 2 разраб.
-    pass
+class TitleGenre(models.Model):
+    """Связующая модель произведений и жанров."""
+    title = models.ForeignKey(
+        Title,
+        on_delete=models.CASCADE,
+        related_name='title_genres',
+        verbose_name='Произведение'
+    )
+    genre = models.ForeignKey(
+        Genre,
+        on_delete=models.CASCADE,
+        related_name='title_genres',
+        verbose_name='Жанр'
+    )
+
+    def __str__(self):
+        return f'Жанр - {self.genre}, произведение - {self.title}'
 
 
 class Review(models.Model):
