@@ -1,14 +1,20 @@
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
-from rest_framework import status, views, viewsets
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status, filters, views, viewsets
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from reviews.models import Category, Genre, Title
-
-from .serializers import CategorySerializer, GenreSerializer, SignupSerializer, TitleSerializer, TokenSerializer, UserSerializer
+from .filters import TitleFilter
+from .mixins import ListCreateDestroyMixin
+from .permissions import IsAdmin
+from .serializers import (CategorySerializer, GenreSerializer,
+                          SignupSerializer, TitleSerializer,
+                          TokenSerializer, UserSerializer)
 
 User = get_user_model()
 
@@ -48,17 +54,29 @@ class CommentsViewSet(ModelViewSet):
     pass
 
 
-class CategoryViewSet(ModelViewSet):
+class CategoryViewSet(ListCreateDestroyMixin):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('name',)
+    lookup_field = 'slug'
+    permission_classes = (IsAdmin,)
+    pagination_class = PageNumberPagination
 
 
 class TitleViewSet(ModelViewSet):
     queryset = Title.objects.all()
     serializer_class = TitleSerializer
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = TitleFilter
+    permission_classes = (IsAdmin,)
 
 
-class GenreViewSet(ModelViewSet):
+class GenreViewSet(ListCreateDestroyMixin):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
-
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('name',)
+    lookup_field = 'slug'
+    permission_classes = (IsAdmin,)
+    pagination_class = PageNumberPagination
