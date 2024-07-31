@@ -40,7 +40,7 @@ class Category(models.Model):
     )
 
     class Meta:
-        verbose_name = 'Категория'
+        verbose_name = 'категория'
         verbose_name_plural = 'Категории'
 
     def __str__(self):
@@ -50,7 +50,7 @@ class Category(models.Model):
 class Genre(models.Model): 
     """Модель Жанров произведений"""
     name = models.CharField(
-        max_length=100,
+        max_length=256,
         default=None,
         verbose_name='Название'
     )
@@ -61,7 +61,7 @@ class Genre(models.Model):
     )
 
     class Meta:
-        verbose_name = 'Жанр'
+        verbose_name = 'жанр'
         verbose_name_plural = 'Жанры'
 
     def __str__(self):
@@ -70,10 +70,9 @@ class Genre(models.Model):
 
 class Title(models.Model):
     """Модель произведений"""
-    name = models.CharField(max_length=200, verbose_name='Название')
-    year = models.IntegerField(verbose_name='год')
+    name = models.CharField(max_length=256, verbose_name='Название')
+    year = models.IntegerField(max_length=4, verbose_name='год')
     description = models.TextField(
-        max_length=200,
         blank=True,null=True,
         verbose_name='Описание'
     )
@@ -91,7 +90,7 @@ class Title(models.Model):
     )
 
     class Meta:
-        verbose_name = 'Произведение'
+        verbose_name = 'произведение'
         verbose_name_plural = 'Произведения'
 
     def __str__(self):
@@ -108,7 +107,8 @@ class TitleGenre(models.Model):
     )
     genre = models.ForeignKey(
         Genre,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name='title_genres',
         verbose_name='Жанр'
     )

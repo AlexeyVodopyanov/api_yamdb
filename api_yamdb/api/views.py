@@ -6,7 +6,9 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .serializers import SignupSerializer, TokenSerializer, UserSerializer
+from reviews.models import Category, Genre, Title
+
+from .serializers import CategorySerializer, GenreSerializer, SignupSerializer, TitleSerializer, TokenSerializer, UserSerializer
 
 User = get_user_model()
 
@@ -44,3 +46,19 @@ class TokenView(views.APIView):
 
 class CommentsViewSet(ModelViewSet):
     pass
+
+
+class CategoryViewSet(ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+
+class TitleViewSet(ModelViewSet):
+    queryset = Title.objects.all()
+    serializer_class = TitleSerializer
+
+
+class GenreViewSet(ModelViewSet):
+    queryset = Genre.objects.all()
+    serializer_class = GenreSerializer
+
