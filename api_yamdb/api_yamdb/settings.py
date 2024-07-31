@@ -23,7 +23,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'reviews.apps.ReviewsConfig',
     'api.apps.ApiConfig',
-    'reviews.apps.ReviewsConfig',
     'rest_framework',
     'rest_framework_simplejwt',
 ]
