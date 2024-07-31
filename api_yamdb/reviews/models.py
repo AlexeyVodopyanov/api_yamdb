@@ -1,5 +1,5 @@
 import uuid
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -13,6 +13,8 @@ class User(AbstractUser):
         ('admin', 'Admin'),
     ], default='user')
     confirmation_code = models.CharField(max_length=36, blank=True, null=True)
+    groups = models.ManyToManyField(Group, related_name='reviews_users', blank=True)
+    user_permissions = models.ManyToManyField(Permission, related_name='reviews_users', blank=True)
 
     REQUIRED_FIELDS = ['email']
 
@@ -26,7 +28,7 @@ class User(AbstractUser):
 
 
 class Category(models.Model):
-    """"Модель категории произведений"""
+    """Модель категории произведений"""
     name = models.CharField(
         max_length=256,
         default=None,
@@ -46,7 +48,7 @@ class Category(models.Model):
         return self.name
 
 
-class Genre(models.Model): 
+class Genre(models.Model):
     """Модель Жанров произведений"""
     name = models.CharField(
         max_length=100,
@@ -65,7 +67,7 @@ class Genre(models.Model):
 
     def __str__(self):
         return self.name
-    
+
 
 class Title(models.Model):
     """Модель произведений"""
@@ -73,7 +75,7 @@ class Title(models.Model):
     year = models.IntegerField(verbose_name='год')
     description = models.TextField(
         max_length=200,
-        blank=True,null=True,
+        blank=True, null=True,
         verbose_name='Описание'
     )
     genre = models.ManyToManyField(
