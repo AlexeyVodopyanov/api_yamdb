@@ -8,7 +8,7 @@ class IsAdmin(BasePermission):
 
 class IsModerator(BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role in ['moderator', 'admin']
+        return request.user.is_authenticated and request.user.role == 'moderator'
 
 
 class IsAuthorOrReadOnly(BasePermission):
