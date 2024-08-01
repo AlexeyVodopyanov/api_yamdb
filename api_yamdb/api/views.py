@@ -1,18 +1,33 @@
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
-from rest_framework import status, views, viewsets
+from rest_framework import status, views
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.permissions import IsAuthenticated, AllowAny
 
-from .serializers import SignupSerializer, TokenSerializer, UserSerializer, CommentSerializer, CategorySerializer, GenreSerializer
-from .permissions import IsAdmin, IsAuthorOrReadOnly
-from reviews.models import Comment, Category, Genre
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from api.serializers import (SignupSerializer,
+                             TokenSerializer,
+                             UserSerializer,
+                             ReviewSerializer,
+                             CommentSerializer,
+                             CategorySerializer,
+                             GenreSerializer)
+from api.permissions import IsAdmin, IsAuthorOrReadOnly
+from reviews.models import Review, Title, Comment, Category, Genre
 
 User = get_user_model()
+
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 3
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
+
 
 class SignupView(views.APIView):
     permission_classes = [AllowAny]
@@ -36,6 +51,7 @@ class SignupView(views.APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 class TokenView(views.APIView):
     permission_classes = [AllowAny]
 
@@ -49,15 +65,8 @@ class TokenView(views.APIView):
             return Response({'confirmation_code': 'Invalid confirmation code'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class CommentsViewSet(ModelViewSet):
-    queryset = Comment.objects.all()
-    serializer_class = CommentSerializer
-    permission_classes = [IsAuthorOrReadOnly]
 
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
-
-class UsersViewSet(viewsets.ModelViewSet):
+class UsersViewSet(ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAdmin]
@@ -76,12 +85,47 @@ class UsersViewSet(viewsets.ModelViewSet):
                 return Response(serializer.data)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class CategoryViewSet(viewsets.ModelViewSet):
+
+class CategoryViewSet(ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [IsAdmin]
 
-class GenreViewSet(viewsets.ModelViewSet):
+
+class GenreViewSet(ModelViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
     permission_classes = [IsAdmin]
+
+
+class ReviewViewSet(ModelViewSet):
+
+    permission_classes = (AllowAny,)  # AllowAny - временно
+    serializer_class = ReviewSerializer
+    pagination_class = StandardResultsSetPagination
+    queryset = Review.objects.all()
+
+    def perform_create(self, serializer):
+        title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
+        serializer.save(author=self.request.user, title=title)
+
+    def get_queryset(self):
+        title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
+        return title.reviews.all()  # type: ignore
+
+
+class CommentsViewSet(ModelViewSet):
+
+    permission_classes = (AllowAny,)  # AllowAny - временно
+    serializer_class = CommentSerializer
+    pagination_class = None
+    pagination_class = StandardResultsSetPagination
+    queryset = Comment.objects.all()
+
+    def perform_create(self, serializer):
+        review = get_object_or_404(Review, pk=self.kwargs.get('review_id'))
+        serializer.save(author=self.request.user, review=review)
+
+    def get_queryset(self):
+        review = get_object_or_404(Review, pk=self.kwargs.get('review_id'))
+        return review.comments.all()  # type: ignore

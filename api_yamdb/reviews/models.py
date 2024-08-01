@@ -2,7 +2,10 @@ import uuid
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+#from django.contrib.auth import get_user_model
 
+
+#User = get_user_model()  # временно заменил модель, т.к. не работала
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
@@ -75,7 +78,8 @@ class Title(models.Model):
     year = models.IntegerField(verbose_name='год')
     description = models.TextField(
         max_length=200,
-        blank=True, null=True,
+        blank=True,
+        null=True,
         verbose_name='Описание'
     )
     genre = models.ManyToManyField(
@@ -134,19 +138,20 @@ class Review(models.Model):
         related_name='reviews'
     )
     pub_date = models.DateTimeField(
-        'Дата публикации отзыва', auto_now_add=True, db_index=True)
+        'Дата публикации отзыва', auto_now_add=True)
     score = models.IntegerField(
         verbose_name='Оценка произведения',
-        default=1,
-        validators=[
-            MinValueValidator(1),
-            MaxValueValidator(10)
-        ]
+#        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(10)]
     )
 
     class Meta:
         verbose_name = 'отзыв'
         verbose_name_plural = 'Отзывы'
+        constraints = [
+            models.UniqueConstraint(fields=('author', 'title'),
+                                    name='unique_author_title')
+        ]
 
 
 class Comment(models.Model):
@@ -165,7 +170,7 @@ class Comment(models.Model):
         related_name='comments'
     )
     pub_date = models.DateTimeField(
-        'Дата добавления комментария', auto_now_add=True, db_index=True)
+        'Дата добавления комментария', auto_now_add=True)
 
     class Meta:
         verbose_name = 'комментарий'
