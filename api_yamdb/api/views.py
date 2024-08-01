@@ -3,7 +3,9 @@ from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, filters, views, mixins, viewsets
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import (IsAuthenticated,
+                                        AllowAny,
+                                        IsAuthenticatedOrReadOnly)
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -92,7 +94,7 @@ class UsersViewSet(ModelViewSet):
 
 
 class CategoryViewSet(ListCreateDestroyMixin):
-    
+
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     filter_backends = (filters.SearchFilter,)
@@ -100,6 +102,7 @@ class CategoryViewSet(ListCreateDestroyMixin):
     lookup_field = 'slug'
     permission_classes = (IsAdminOrReadOnly,)
     pagination_class = PageNumberPagination
+
 
 class GenreViewSet(ListCreateDestroyMixin):
 
@@ -134,7 +137,7 @@ class TitleViewSet(mixins.CreateModelMixin,
 
 class ReviewViewSet(ModelViewSet):
 
-    permission_classes = (IsAuthorOrReadOnly, IsAuthenticated)  # AllowAny - временно
+    permission_classes = (IsAuthorOrReadOnly, IsAuthenticatedOrReadOnly,)  # AllowAny - временно
     serializer_class = ReviewSerializer
     pagination_class = StandardResultsSetPagination
     queryset = Review.objects.all()
@@ -147,10 +150,13 @@ class ReviewViewSet(ModelViewSet):
         title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
         return title.reviews.all()  # type: ignore
 
+#    def update(self, request, *args, **kwargs):
+#        return Response(data='PUT-запрос не предусмотрен', status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
 
 class CommentsViewSet(ModelViewSet):
 
-    permission_classes = (IsAuthorOrReadOnly, IsAuthenticated)  # AllowAny - временно
+    permission_classes = (IsAuthorOrReadOnly, IsAuthenticatedOrReadOnly,)  # AllowAny - временно
     serializer_class = CommentSerializer
     pagination_class = None
     pagination_class = StandardResultsSetPagination
@@ -163,3 +169,7 @@ class CommentsViewSet(ModelViewSet):
     def get_queryset(self):
         review = get_object_or_404(Review, pk=self.kwargs.get('review_id'))
         return review.comments.all()  # type: ignore
+
+    def update(self, request, *args, **kwargs):
+        return Response(data='PUT-запрос не предусмотрен',
+                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
