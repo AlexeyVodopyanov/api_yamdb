@@ -1,17 +1,39 @@
 from django.urls import include, path
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
+from .views import (CommentsViewSet,
+                    ReviewViewSet, TitleViewSet,
+                    UsersViewSet,
+                    SignupView,
+                    TokenView,
+                    CategoryViewSet,
+                    GenreViewSet)
 
-from api.views import (CategoryViewSet, CommentsViewSet,
-                       GenreViewSet, TitleViewSet)
 
-router_v1 = DefaultRouter()
-router_v1.register('comments', CommentsViewSet, basename='comments')
-router_v1.register('categories', CategoryViewSet, basename='categories')
-router_v1.register('titles', TitleViewSet, basename='title')
-router_v1.register('genres', GenreViewSet, basename='genres')
+router = SimpleRouter()
+
+router.register(r'titles/(?P<title_id>\d+)/reviews/(?P<review_id>\d+)/comments',
+                CommentsViewSet,
+                basename='comments')
+router.register(r'titles/(?P<title_id>\d+)/reviews',
+                ReviewViewSet,
+                basename='reviews')
+router.register('users', UsersViewSet, basename='users')
+router.register('categories', CategoryViewSet, basename='categories')
+router.register('genres', GenreViewSet, basename='genres')
+router.register('titles', TitleViewSet, basename='title')
 
 app_name = 'api'
 
+patterns_version_1 = [
+    path('', include(router.urls)),
+]
+
 urlpatterns = [
-    path('v1/', include(router_v1.urls)),
+    path('v1/', include(router.urls)),
+    path('v1/auth/signup/', SignupView.as_view(), name='signup'),
+    path('v1/auth/token/', TokenView.as_view(), name='token'),
+    path('v1/users/me/',
+         UsersViewSet.as_view({'get': 'get_current_user_info',
+                               'patch': 'get_current_user_info'}),
+         name='current_user'),
 ]
