@@ -1,5 +1,7 @@
+from datetime import datetime
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.db.models import Avg
 from django.conf import settings
 from rest_framework import serializers
 
@@ -50,16 +52,18 @@ class GenreSerializer(serializers.ModelSerializer):
 class TitleSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     genre = GenreSerializer(many=True, read_only=True)
+    rating = serializers.SerializerMethodField()
 
     class Meta:
         model = Title
-        fields = ('id', 'name', 'year', 'description', 'genre', 'category')
+        fields = (
+            'id', 'name', 'year', 'description', 'genre', 'category', 'rating'
+        )
 
-    # def validate_year(self, value):
-    #     year = timezone.now().year
-    #     if value not in range(settings.TITLES_MIN_YEAR, year):
-    #         raise serializers.ValidationError('Не верно указан год!')
-    #     return value
+    def get_rating(self, obj):
+        score = obj.reviews.aggregate(Avg('score'))
+        return score['score__avg']
+
 
 
 class TitleCreateSerializer(serializers.ModelSerializer):
@@ -72,10 +76,17 @@ class TitleCreateSerializer(serializers.ModelSerializer):
         slug_field='slug',
         many=True
     )
+    rating = serializers.SerializerMethodField()
 
     class Meta:
         model = Title
-        fields = ('id', 'name', 'year', 'description', 'genre', 'category')
+        fields = (
+            'id', 'name', 'year', 'description', 'genre', 'category', 'rating'
+        )
+
+    def get_rating(self, obj):
+        score = obj.reviews.aggregate(Avg('score'))
+        return score['score__avg']
 
 
 class ReviewSerializer(serializers.ModelSerializer):

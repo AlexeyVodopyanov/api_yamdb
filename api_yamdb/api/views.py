@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import status, filters, views
+from rest_framework import status, filters, views, mixins, viewsets
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
@@ -13,16 +13,16 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from reviews.models import Category, Genre, Title
 from .filters import TitleFilter
 from .mixins import ListCreateDestroyMixin
-from .permissions import IsAdmin, IsAdminOrReadOnly
-from api.serializers import (SignupSerializer, TitleCreateSerializer,
-                             TokenSerializer,
-                             UserSerializer,
-                             ReviewSerializer,
-                             CommentSerializer,
-                             CategorySerializer,
-                             TitleSerializer,
-                             GenreSerializer)
-from api.permissions import IsAdmin, IsAuthorOrReadOnly
+from .serializers import (SignupSerializer,
+                          TitleCreateSerializer,
+                          TokenSerializer,
+                          UserSerializer,
+                          ReviewSerializer,
+                          CommentSerializer,
+                          CategorySerializer,
+                          TitleSerializer,
+                          GenreSerializer)
+from .permissions import IsAdmin, IsAuthorOrReadOnly, IsAdminOrReadOnly
 from reviews.models import Review, Title, Comment, Category, Genre
 
 User = get_user_model()
@@ -92,6 +92,7 @@ class UsersViewSet(ModelViewSet):
 
 
 class CategoryViewSet(ListCreateDestroyMixin):
+    
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     filter_backends = (filters.SearchFilter,)
@@ -101,6 +102,7 @@ class CategoryViewSet(ListCreateDestroyMixin):
     pagination_class = PageNumberPagination
 
 class GenreViewSet(ListCreateDestroyMixin):
+
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
     filter_backends = (filters.SearchFilter,)
@@ -110,7 +112,13 @@ class GenreViewSet(ListCreateDestroyMixin):
     pagination_class = PageNumberPagination
 
 
-class TitleViewSet(ModelViewSet):
+class TitleViewSet(mixins.CreateModelMixin,
+                   mixins.RetrieveModelMixin,
+                   mixins.UpdateModelMixin,
+                   mixins.DestroyModelMixin,
+                   mixins.ListModelMixin,
+                   viewsets.GenericViewSet):
+
     queryset = Title.objects.all()
     serializer_class = TitleSerializer
     filter_backends = (DjangoFilterBackend,)
@@ -119,10 +127,9 @@ class TitleViewSet(ModelViewSet):
     pagination_class = PageNumberPagination
 
     def get_serializer_class(self):
-        if self.action in ['create', 'update', 'partial_update']:
+        if self.action in ('create', 'partial_update'):
             return TitleCreateSerializer
         return TitleSerializer
-
 
 
 class ReviewViewSet(ModelViewSet):
