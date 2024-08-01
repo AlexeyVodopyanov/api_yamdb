@@ -134,7 +134,7 @@ class TitleViewSet(mixins.CreateModelMixin,
 
 class ReviewViewSet(ModelViewSet):
 
-    permission_classes = (AllowAny,)  # AllowAny - временно
+    permission_classes = (IsAuthorOrReadOnly, IsAuthenticated)  # AllowAny - временно
     serializer_class = ReviewSerializer
     pagination_class = StandardResultsSetPagination
     queryset = Review.objects.all()
@@ -150,7 +150,7 @@ class ReviewViewSet(ModelViewSet):
 
 class CommentsViewSet(ModelViewSet):
 
-    permission_classes = (AllowAny,)  # AllowAny - временно
+    permission_classes = (IsAuthorOrReadOnly, IsAuthenticated)  # AllowAny - временно
     serializer_class = CommentSerializer
     pagination_class = None
     pagination_class = StandardResultsSetPagination
