@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
+from django.forms import ValidationError
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, filters, views, mixins, viewsets
@@ -10,15 +11,20 @@ from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from reviews.models import Category, Genre, Title, Review, Comment
+from reviews.models import Category, Genre, Title, Review, Comment, User
 from .filters import TitleFilter
 from .mixins import ListCreateDestroyMixin
 from .serializers import (SignupSerializer, TitleCreateSerializer, TokenSerializer,
                           UserSerializer, ReviewSerializer, CommentSerializer,
                           CategorySerializer, TitleSerializer, GenreSerializer)
-from .permissions import IsAdmin, IsAuthorOrReadOnly, IsAdminOrReadOnly, IsModerator
+from .permissions import (IsAdmin,
+                          IsAuthorOrReadOnly,
+                          IsAdminOrReadOnly,
+                          IsModerator,
+                          IsAuthorOrModeratorOrReadOnly)
 
-User = get_user_model()
+#User = get_user_model()
+ADMIN = ('admin', 'Admin')
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -182,10 +188,11 @@ class TitleViewSet(mixins.CreateModelMixin,
 
 
 class ReviewViewSet(ModelViewSet):
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthorOrModeratorOrReadOnly,)
     serializer_class = ReviewSerializer
     queryset = Review.objects.all()
     http_method_names = ['get', 'post', 'patch', 'delete']
+    pagination_class = PageNumberPagination
 
     def get_title(self):
         title_id = self.kwargs.get('title_id')
@@ -200,17 +207,21 @@ class ReviewViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         title = self.get_title()
-        serializer.save(
-            title=title,
-            author=self.request.user
-        )
+        queryset = Review.objects.filter(title=title, author=self.request.user)
+        if not queryset.exists():
+            serializer.save(
+                title=title,
+                author=self.request.user
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CommentsViewSet(ModelViewSet):
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthorOrModeratorOrReadOnly,)
     serializer_class = CommentSerializer
     queryset = Comment.objects.all()
     http_method_names = ['get', 'post', 'patch', 'delete']
+    pagination_class = PageNumberPagination
 
     def perform_create(self, serializer):
         review = get_object_or_404(Review, pk=self.kwargs.get('review_id'))
@@ -220,18 +231,21 @@ class CommentsViewSet(ModelViewSet):
         review = get_object_or_404(Review, pk=self.kwargs.get('review_id'))
         return review.comments.all()
 
-    def update(self, request, *args, **kwargs):
+    '''    def update(self, request, *args, **kwargs):
         comment = self.get_object()
         if comment.author != request.user and not request.user.is_staff:
             return Response(status=status.HTTP_403_FORBIDDEN)
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
+#        comment = get_object_or_404(Comment, pk=self.kwargs.get('pk'))
         comment = self.get_object()
-        if comment.author != request.user and not request.user.is_staff:
+        if request.user.is_staff:
+            return super().partial_update(request, *args, **kwargs)
+        if comment.author != request.user:
             return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().partial_update(request, *args, **kwargs)
-
+        return super().partial_update(request, *args, **kwargs)'''
+'''
     def destroy(self, request, *args, **kwargs):
         comment = self.get_object()
         if comment.author != request.user and not request.user.is_staff:
@@ -240,3 +254,4 @@ class CommentsViewSet(ModelViewSet):
 
     def put(self, request, *args, **kwargs):
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+'''
