@@ -207,14 +207,11 @@ class ReviewViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         title = self.get_title()
-        queryset = Review.objects.filter(title=title, author=self.request.user)
-        if not queryset.exists():
-            serializer.save(
-                title=title,
-                author=self.request.user
-            )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        serializer.save(
+            title=title,
+            author=self.request.user
+        )
+        
 
 class CommentsViewSet(ModelViewSet):
     permission_classes = (IsAuthorOrModeratorOrReadOnly,)
@@ -230,28 +227,3 @@ class CommentsViewSet(ModelViewSet):
     def get_queryset(self):
         review = get_object_or_404(Review, pk=self.kwargs.get('review_id'))
         return review.comments.all()
-
-    '''    def update(self, request, *args, **kwargs):
-        comment = self.get_object()
-        if comment.author != request.user and not request.user.is_staff:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().update(request, *args, **kwargs)
-
-    def partial_update(self, request, *args, **kwargs):
-#        comment = get_object_or_404(Comment, pk=self.kwargs.get('pk'))
-        comment = self.get_object()
-        if request.user.is_staff:
-            return super().partial_update(request, *args, **kwargs)
-        if comment.author != request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().partial_update(request, *args, **kwargs)'''
-'''
-    def destroy(self, request, *args, **kwargs):
-        comment = self.get_object()
-        if comment.author != request.user and not request.user.is_staff:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().destroy(request, *args, **kwargs)
-
-    def put(self, request, *args, **kwargs):
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
-'''
