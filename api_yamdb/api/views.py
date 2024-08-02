@@ -1,30 +1,28 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
-from django.forms import ValidationError
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import status, filters, views, mixins, viewsets
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
-from rest_framework.viewsets import ModelViewSet
-from rest_framework.response import Response
+from rest_framework import filters, mixins, status, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from reviews.models import Category, Genre, Title, Review, Comment, User
+from reviews.models import Category, Comment, Genre, Review, Title
+from . import serializers
 from .filters import TitleFilter
 from .mixins import ListCreateDestroyMixin
-from .serializers import (SignupSerializer, TitleCreateSerializer, TokenSerializer,
-                          UserSerializer, ReviewSerializer, CommentSerializer,
-                          CategorySerializer, TitleSerializer, GenreSerializer)
-from .permissions import (IsAdmin,
-                          IsAuthorOrReadOnly,
-                          IsAdminOrReadOnly,
-                          IsModerator,
+from .permissions import (IsAdmin, IsAdminOrReadOnly,
                           IsAuthorOrModeratorOrReadOnly)
+from .serializers import (CategorySerializer, CommentSerializer,
+                          GenreSerializer, ReviewSerializer, SignupSerializer,
+                          TitleCreateSerializer, TitleSerializer,
+                          TokenSerializer, UserSerializer)
 
-#User = get_user_model()
-ADMIN = ('admin', 'Admin')
+User = get_user_model()
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -71,22 +69,52 @@ class SignupView(views.APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class TokenView(views.APIView):
+class TokenView(viewsets.ViewSet):
     permission_classes = [AllowAny]
 
-    def post(self, request):
+    @action(methods=['post'], detail=False, url_path='token')
+    def get_token(self, request):
         serializer = TokenSerializer(data=request.data)
-        if serializer.is_valid():
-            username = serializer.validated_data['username']
-            user = User.objects.filter(username=username).first()
-            if not user:
-                return Response({'username': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        user = get_object_or_404(User, username=data['username'])
+        if default_token_generator.check_token(user, data['confirmation_code']):
+            token = RefreshToken.for_user(user).access_token
+            return Response({'token': str(token)}, status=status.HTTP_200_OK)
+        return Response(
+            {'confirmation_code': 'Invalid confirmation code'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-            if user.check_confirmation_code(serializer.validated_data['confirmation_code']):
-                token = RefreshToken.for_user(user)
-                return Response({'token': str(token.access_token)}, status=status.HTTP_200_OK)
-            return Response({'confirmation_code': 'Invalid confirmation code'}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    @action(methods=['post'], detail=False, permission_classes=[AllowAny], url_path='signup')
+    def signup(self, request):
+        user = User.objects.filter(
+            username=request.data.get('username'),
+            email=request.data.get('email')
+        ).first()
+        if not user:
+            serializer = SignupSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            user = serializer.save()
+            confirmation_code = default_token_generator.make_token(user)
+            send_mail(
+                'Confirmation code',
+                f'Your confirmation code is {confirmation_code}',
+                'from@example.com',
+                [user.email],
+                fail_silently=False,
+            )
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = SignupSerializer(user)
+        confirmation_code = default_token_generator.make_token(user)
+        send_mail(
+            'Confirmation code',
+            f'Your confirmation code is {confirmation_code}',
+            'from@example.com',
+            [user.email],
+            fail_silently=False,
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class UsersViewSet(ModelViewSet):
@@ -150,7 +178,7 @@ class CategoryViewSet(ListCreateDestroyMixin):
     search_fields = ('name',)
     lookup_field = 'slug'
     permission_classes = (IsAdminOrReadOnly,)
-    pagination_class = PageNumberPagination
+    pagination_class = StandardResultsSetPagination
 
 
 class GenreViewSet(ListCreateDestroyMixin):
@@ -160,7 +188,7 @@ class GenreViewSet(ListCreateDestroyMixin):
     search_fields = ('name',)
     lookup_field = 'slug'
     permission_classes = (IsAdminOrReadOnly,)
-    pagination_class = PageNumberPagination
+    pagination_class = StandardResultsSetPagination
 
 
 class TitleViewSet(mixins.CreateModelMixin,
@@ -173,7 +201,7 @@ class TitleViewSet(mixins.CreateModelMixin,
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
     permission_classes = (IsAdminOrReadOnly,)
-    pagination_class = PageNumberPagination
+    pagination_class = StandardResultsSetPagination
 
     def get_serializer_class(self):
         if self.action in ('create', 'partial_update'):
@@ -184,7 +212,14 @@ class TitleViewSet(mixins.CreateModelMixin,
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def partial_update(self, request, *args, **kwargs):
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        title = self.get_object()
+        serializer = TitleCreateSerializer(title, data=request.data, partial=True)
+        if serializer.is_valid():
+            if len(serializer.validated_data.get('name', '')) > 256:
+                return Response({'name': 'Name cannot be longer than 256 characters'}, status=status.HTTP_400_BAD_REQUEST)
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ReviewViewSet(ModelViewSet):
@@ -192,14 +227,11 @@ class ReviewViewSet(ModelViewSet):
     serializer_class = ReviewSerializer
     queryset = Review.objects.all()
     http_method_names = ['get', 'post', 'patch', 'delete']
-    pagination_class = PageNumberPagination
+    pagination_class = StandardResultsSetPagination
 
     def get_title(self):
         title_id = self.kwargs.get('title_id')
-        return get_object_or_404(
-            Title,
-            pk=title_id
-        )
+        return get_object_or_404(Title, pk=title_id)
 
     def get_queryset(self):
         title = self.get_title()
@@ -207,13 +239,27 @@ class ReviewViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         title = self.get_title()
-        queryset = Review.objects.filter(title=title, author=self.request.user)
-        if not queryset.exists():
-            serializer.save(
-                title=title,
-                author=self.request.user
-            )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if Review.objects.filter(title=title, author=self.request.user).exists():
+            raise serializers.ValidationError('Review already exists')
+        serializer.save(title=title, author=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        title = self.get_title()
+        review = self.get_object()
+        if review.title != title:
+            return Response({'detail': 'Review does not belong to this title'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = self.get_serializer(review, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
 
 class CommentsViewSet(ModelViewSet):
@@ -221,7 +267,7 @@ class CommentsViewSet(ModelViewSet):
     serializer_class = CommentSerializer
     queryset = Comment.objects.all()
     http_method_names = ['get', 'post', 'patch', 'delete']
-    pagination_class = PageNumberPagination
+    pagination_class = StandardResultsSetPagination
 
     def perform_create(self, serializer):
         review = get_object_or_404(Review, pk=self.kwargs.get('review_id'))
@@ -230,28 +276,3 @@ class CommentsViewSet(ModelViewSet):
     def get_queryset(self):
         review = get_object_or_404(Review, pk=self.kwargs.get('review_id'))
         return review.comments.all()
-
-    '''    def update(self, request, *args, **kwargs):
-        comment = self.get_object()
-        if comment.author != request.user and not request.user.is_staff:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().update(request, *args, **kwargs)
-
-    def partial_update(self, request, *args, **kwargs):
-#        comment = get_object_or_404(Comment, pk=self.kwargs.get('pk'))
-        comment = self.get_object()
-        if request.user.is_staff:
-            return super().partial_update(request, *args, **kwargs)
-        if comment.author != request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().partial_update(request, *args, **kwargs)'''
-'''
-    def destroy(self, request, *args, **kwargs):
-        comment = self.get_object()
-        if comment.author != request.user and not request.user.is_staff:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().destroy(request, *args, **kwargs)
-
-    def put(self, request, *args, **kwargs):
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
-'''
