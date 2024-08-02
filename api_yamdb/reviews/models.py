@@ -19,15 +19,15 @@ class User(AbstractUser):
     groups = models.ManyToManyField(Group, related_name='reviews_users', blank=True)
     user_permissions = models.ManyToManyField(Permission, related_name='reviews_users', blank=True)
 
-#     REQUIRED_FIELDS = ['email']
+    REQUIRED_FIELDS = ['email']
 
-#     def __str__(self):
-#         return self.username
+    def __str__(self):
+        return self.username
 
-#     def generate_confirmation_code(self):
-#         self.confirmation_code = str(uuid.uuid4())
-#         self.save()
-#         return self.confirmation_code
+    def generate_confirmation_code(self):
+        self.confirmation_code = str(uuid.uuid4())
+        self.save()
+        return self.confirmation_code
 
 
 class Category(models.Model):
@@ -142,7 +142,7 @@ class Review(models.Model):
         'Дата публикации отзыва', auto_now_add=True)
     score = models.IntegerField(
         verbose_name='Оценка произведения',
-#        default=1,
+        default=1,
         validators=[MinValueValidator(1), MaxValueValidator(10)]
     )
 
@@ -153,6 +153,7 @@ class Review(models.Model):
             models.UniqueConstraint(fields=('author', 'title'),
                                     name='unique_author_title')
         ]
+        ordering = ('pub_date', 'author')
 
 
 class Comment(models.Model):
@@ -176,3 +177,4 @@ class Comment(models.Model):
     class Meta:
         verbose_name = 'комментарий'
         verbose_name_plural = 'Комментарии'
+        ordering = ('pub_date', 'author')

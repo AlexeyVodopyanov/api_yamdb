@@ -1,8 +1,5 @@
-from datetime import datetime
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 from django.db.models import Avg
-from django.conf import settings
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
@@ -15,6 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('username', 'email', 'first_name', 'last_name', 'bio', 'role')
+        read_only_fields = ('role',)
 
 
 class SignupSerializer(serializers.ModelSerializer):
@@ -35,7 +33,6 @@ class TokenSerializer(serializers.Serializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Category
         fields = ('name', 'slug')
@@ -43,7 +40,6 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class GenreSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Genre
         fields = ('name', 'slug')
@@ -64,7 +60,6 @@ class TitleSerializer(serializers.ModelSerializer):
     def get_rating(self, obj):
         score = obj.reviews.aggregate(Avg('score'))
         return score['score__avg']
-
 
 
 class TitleCreateSerializer(serializers.ModelSerializer):
@@ -91,24 +86,21 @@ class TitleCreateSerializer(serializers.ModelSerializer):
 
 
 class ReviewSerializer(serializers.ModelSerializer):
-    author = serializers.SlugRelatedField(read_only=True,
-                                          slug_field='username')
+    author = serializers.SlugRelatedField(read_only=True, slug_field='username')
 
     class Meta:
         fields = ('id', 'text', 'author', 'score', 'pub_date')
         model = Review
-#        read_only_fields = ('title',)
- #       validators = [
-  #          UniqueTogetherValidator(
-   #             queryset=Review.objects.all(),
-    #            fields=('author', 'title')
-     #       )
-      #  ]
-
+'''        validators = [
+            UniqueTogetherValidator(
+                queryset=Review.objects.all(),
+                fields=('id', 'author')
+            )
+        ]
+'''
 
 class CommentSerializer(serializers.ModelSerializer):
-    author = serializers.SlugRelatedField(read_only=True,
-                                          slug_field='username')
+    author = serializers.SlugRelatedField(read_only=True, slug_field='username')
 
     class Meta:
         fields = ('id', 'text', 'author', 'pub_date')
