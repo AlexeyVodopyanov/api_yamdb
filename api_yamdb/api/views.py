@@ -163,17 +163,20 @@ class GenreViewSet(ListCreateDestroyMixin):
     pagination_class = PageNumberPagination
 
 
-class TitleViewSet(ModelViewSet):
+class TitleViewSet(mixins.CreateModelMixin,
+                   mixins.RetrieveModelMixin,
+                   mixins.DestroyModelMixin,
+                   mixins.ListModelMixin,
+                   viewsets.GenericViewSet):
     queryset = Title.objects.all()
     serializer_class = TitleSerializer
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
     permission_classes = (IsAdminOrReadOnly,)
     pagination_class = PageNumberPagination
-    http_method_names = ['get', 'post', 'patch', 'delete']
 
     def get_serializer_class(self):
-        if self.action in ('create', 'partial_update', 'update'):
+        if self.action in ('create', 'partial_update'):
             return TitleCreateSerializer
         return TitleSerializer
 
@@ -181,7 +184,7 @@ class TitleViewSet(ModelViewSet):
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def partial_update(self, request, *args, **kwargs):
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class ReviewViewSet(ModelViewSet):
