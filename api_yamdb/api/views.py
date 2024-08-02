@@ -72,15 +72,22 @@ class SignupView(views.APIView):
 class TokenView(viewsets.ViewSet):
     permission_classes = [AllowAny]
 
-    @action(methods=['post'], detail=False, url_path='token')
-    def get_token(self, request):
+    @action(methods=['POST'], detail=False, url_path='token')
+    def post(self, request):
         serializer = TokenSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-        user = get_object_or_404(User, username=data['username'])
-        if default_token_generator.check_token(user, data['confirmation_code']):
+        if serializer.is_valid():
+            return self.get_token(request, serializer.validated_data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get_token(self, request, validated_data):
+        username = validated_data['username']
+        user = get_object_or_404(User, username=username)
+        confirmation_code = validated_data.get('confirmation_code')
+
+        if default_token_generator.check_token(user, confirmation_code):
             token = RefreshToken.for_user(user).access_token
             return Response({'token': str(token)}, status=status.HTTP_200_OK)
+
         return Response(
             {'confirmation_code': 'Invalid confirmation code'},
             status=status.HTTP_400_BAD_REQUEST
