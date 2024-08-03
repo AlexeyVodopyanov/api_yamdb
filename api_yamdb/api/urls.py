@@ -2,8 +2,8 @@ from django.urls import include, path
 from rest_framework.routers import SimpleRouter
 
 from .views import (CategoryViewSet, CommentsViewSet, GenreViewSet,
-                    ReviewViewSet, SignupView, TitleViewSet, TokenView,
-                    UsersViewSet, UserInfoViewSet)
+                    ReviewViewSet, TitleViewSet, TokenView,
+                    UsersViewSet, UserInfoViewSet, signup_users)
 
 router = SimpleRouter()
 
@@ -27,7 +27,7 @@ patterns_version_1 = [
          UserInfoViewSet.as_view({'get': 'get_current_user_info',
                                   'patch': 'get_current_user_info'}),
          name='current_user'),
-    path('auth/signup/', SignupView.as_view(), name='signup'),
+    path('auth/signup/', signup_users, name='signup'),
     path('', include(router.urls)),
 
 ]

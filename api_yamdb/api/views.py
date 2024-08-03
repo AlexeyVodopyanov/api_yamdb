@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, views, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -44,42 +44,43 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 1000
 
 
-class SignupView(views.APIView):
-    """Модель подключения пользователей."""
+@api_view(['POST'])
+def signup_users(request):
+    """Функция подключения пользователей."""
 
-    permission_classes = [AllowAny]
+    data = request.data
+    serializer = SignupSerializer(data=data)
+    if serializer.is_valid():
+        username = data['username']
+        email = data['email']
+        user = User.objects.filter(username=username, email=email) # delete? '.first()'
+        if not user.exists():
 
-    def post(self, request):
-        serializer = SignupSerializer(data=request.data)
-        if serializer.is_valid():
-            username = serializer.validated_data['username']
-            email = serializer.validated_data['email']
-            user = User.objects.filter(username=username, email=email).first()
-            if user:
-                confirmation_code = user.generate_confirmation_code()
-                send_mail(
-                    'Confirmation code',
-                    f'Your confirmation code is {confirmation_code}',
-                    'from@example.com',
-                    [user.email],
-                    fail_silently=False,
-                )
-                return Response(serializer.data, status=HTTP_200_OK)
-            user, created = User.objects.get_or_create(
-                username=username,
-                email=email
+        if user:
+            confirmation_code = user.generate_confirmation_code()
+            send_mail(
+                'Confirmation code',
+                f'Your confirmation code is {confirmation_code}',
+                'from@example.com',
+                [user.email],
+                fail_silently=False,
             )
-            if created:
-                confirmation_code = user.generate_confirmation_code()
-                send_mail(
-                    'Confirmation code',
-                    f'Your confirmation code is {confirmation_code}',
-                    'from@example.com',
-                    [user.email],
-                    fail_silently=False,
-                )
             return Response(serializer.data, status=HTTP_200_OK)
-        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+        user, created = User.objects.get_or_create(
+            username=username,
+            email=email
+        )
+        if created:
+            confirmation_code = user.generate_confirmation_code()
+            send_mail(
+                'Confirmation code',
+                f'Your confirmation code is {confirmation_code}',
+                'from@example.com',
+                [user.email],
+                fail_silently=False,
+            )
+        return Response(serializer.data, status=HTTP_200_OK)
+    return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
 
 class TokenView(viewsets.ViewSet):
