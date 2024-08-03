@@ -1,11 +1,7 @@
-import uuid
+from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
-#from django.contrib.auth import get_user_model
 
-
-#User = get_user_model()  # временно заменил модель, т.к. не работала
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
@@ -25,7 +21,6 @@ class User(AbstractUser):
         return self.username
 
     def generate_confirmation_code(self):
-        self.confirmation_code = str(uuid.uuid4())
         self.save()
         return self.confirmation_code
 
