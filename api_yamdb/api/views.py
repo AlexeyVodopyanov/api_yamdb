@@ -31,9 +31,9 @@ from api.serializers import (CategorySerializer,
                              TitleSerializer,
                              TokenSerializer,
                              UserSerializer)
-from reviews.models import Category, Comment, Genre, Review, Title
+from reviews.models import Category, Comment, Genre, Review, Title, User
 
-User = get_user_model()
+#User = get_user_model()
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -139,15 +139,14 @@ class TokenView(viewsets.ViewSet):
         return Response(serializer.data, status=HTTP_200_OK)
 
 
-class UsersViewSet(ModelViewSet):
-    """По модели пользователей запросы 'get', 'post', 'patch', 'delete'."""
+class UserInfoViewSet(ModelViewSet):
+    """Пользователь смотрит о себе информацию (get) и меняеет ее (patch)."""
 
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAuthenticated]
     lookup_field = 'username'
-    http_method_names = ['get', 'post', 'patch', 'delete']
-    filter_backends = (filters.SearchFilter,)
+    http_method_names = ['get', 'patch']
     search_fields = ('username',)
 
     @action(methods=['get', 'patch'],
@@ -169,6 +168,18 @@ class UsersViewSet(ModelViewSet):
                 serializer.save()
                 return Response(serializer.data)
             return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+
+
+class UsersViewSet(ModelViewSet):
+    """По модели пользователей запросы 'get', 'post', 'patch', 'delete'."""
+
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAdmin]
+    lookup_field = 'username'
+    http_method_names = ['get', 'post', 'patch', 'delete']
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('username',)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
