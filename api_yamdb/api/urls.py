@@ -3,7 +3,7 @@ from rest_framework.routers import SimpleRouter
 
 from .views import (CategoryViewSet, CommentsViewSet, GenreViewSet,
                     ReviewViewSet, SignupView, TitleViewSet, TokenView,
-                    UsersViewSet)
+                    UsersViewSet, UserInfoViewSet)
 
 router = SimpleRouter()
 
@@ -21,15 +21,17 @@ router.register(r'auth', TokenView, basename='auth')
 
 app_name = 'api'
 
+
 patterns_version_1 = [
+    path('users/me/',
+         UserInfoViewSet.as_view({'get': 'get_current_user_info',
+                                  'patch': 'get_current_user_info'}),
+         name='current_user'),
+    path('auth/signup/', SignupView.as_view(), name='signup'),
     path('', include(router.urls)),
+
 ]
 
 urlpatterns = [
-    path('v1/', include(router.urls)),
-    path('v1/auth/signup/', SignupView.as_view(), name='signup'),
-    path('v1/users/me/',
-         UsersViewSet.as_view({'get': 'get_current_user_info',
-                               'patch': 'get_current_user_info'}),
-         name='current_user'),
+    path('v1/', include(patterns_version_1)),
 ]
