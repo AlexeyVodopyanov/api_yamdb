@@ -1,9 +1,11 @@
-from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models
 
 
 class User(AbstractUser):
+    """Модель пользователей"""
+
     email = models.EmailField(unique=True)
     bio = models.TextField(blank=True, null=True)
     role = models.CharField(max_length=20, choices=[
@@ -12,8 +14,12 @@ class User(AbstractUser):
         ('admin', 'Admin'),
     ], default='user')
     confirmation_code = models.CharField(max_length=36, blank=True, null=True)
-    groups = models.ManyToManyField(Group, related_name='reviews_users', blank=True)
-    user_permissions = models.ManyToManyField(Permission, related_name='reviews_users', blank=True)
+    groups = models.ManyToManyField(Group,
+                                    related_name='reviews_users',
+                                    blank=True)
+    user_permissions = models.ManyToManyField(Permission,
+                                              related_name='reviews_users',
+                                              blank=True)
 
     REQUIRED_FIELDS = ['email']
 
@@ -24,9 +30,15 @@ class User(AbstractUser):
         self.save()
         return self.confirmation_code
 
+    class Meta:
+        verbose_name = 'пользователь'
+        verbose_name_plural = 'Пользователи'
+        ordering = ('role', 'id')
+
 
 class Category(models.Model):
     """Модель категории произведений"""
+
     name = models.CharField(
         max_length=256,
         default=None,
@@ -41,6 +53,7 @@ class Category(models.Model):
     class Meta:
         verbose_name = 'категория'
         verbose_name_plural = 'Категории'
+        ordering = ('name', 'slug')
 
     def __str__(self):
         return self.name
@@ -48,6 +61,7 @@ class Category(models.Model):
 
 class Genre(models.Model):
     """Модель Жанров произведений"""
+
     name = models.CharField(
         max_length=256,
         default=None,
@@ -70,6 +84,7 @@ class Genre(models.Model):
 
 class Title(models.Model):
     """Модель произведений"""
+
     name = models.CharField(max_length=256, verbose_name='Название')
     year = models.IntegerField(verbose_name='год')
     description = models.TextField(
@@ -102,6 +117,7 @@ class Title(models.Model):
 
 class TitleGenre(models.Model):
     """Связующая модель произведений и жанров."""
+
     title = models.ForeignKey(
         Title,
         on_delete=models.CASCADE,
@@ -122,6 +138,7 @@ class TitleGenre(models.Model):
 
 class Review(models.Model):
     """Модель отзывов на произведения"""
+
     text = models.TextField(verbose_name='Текст')
     author = models.ForeignKey(
         User,
@@ -155,6 +172,7 @@ class Review(models.Model):
 
 class Comment(models.Model):
     """Модель комментариев по отзывам"""
+
     text = models.TextField(verbose_name='Текст')
     author = models.ForeignKey(
         User,

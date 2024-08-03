@@ -2,36 +2,51 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
+
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, mixins, status, views, viewsets
+from rest_framework import filters, mixins, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.serializers import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.status import (HTTP_200_OK,
+                                   HTTP_201_CREATED,
+                                   HTTP_204_NO_CONTENT,
+                                   HTTP_400_BAD_REQUEST,
+                                   HTTP_405_METHOD_NOT_ALLOWED)
+from rest_framework.viewsets import ModelViewSet
 
+from api.filters import TitleFilter
+from api.mixins import ListCreateDestroyMixin
+from api.permissions import (IsAdmin, IsAdminOrReadOnly,
+                             IsAuthorOrModeratorOrReadOnly)
+from api.serializers import (CategorySerializer,
+                             CommentSerializer,
+                             GenreSerializer,
+                             ReviewSerializer,
+                             SignupSerializer,
+                             TitleCreateSerializer,
+                             TitleSerializer,
+                             TokenSerializer,
+                             UserSerializer)
 from reviews.models import Category, Comment, Genre, Review, Title
-from . import serializers
-from .filters import TitleFilter
-from .mixins import ListCreateDestroyMixin
-from .permissions import (IsAdmin, IsAdminOrReadOnly,
-                          IsAuthorOrModeratorOrReadOnly)
-from .serializers import (CategorySerializer, CommentSerializer,
-                          GenreSerializer, ReviewSerializer, SignupSerializer,
-                          TitleCreateSerializer, TitleSerializer,
-                          TokenSerializer, UserSerializer)
 
 User = get_user_model()
 
 
 class StandardResultsSetPagination(PageNumberPagination):
+    """Пагинатор для моделей модуля."""
+
     page_size = 3
     page_size_query_param = 'page_size'
     max_page_size = 1000
 
 
 class SignupView(views.APIView):
+    """Модель подключения пользователей."""
+
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -39,7 +54,6 @@ class SignupView(views.APIView):
         if serializer.is_valid():
             username = serializer.validated_data['username']
             email = serializer.validated_data['email']
-
             user = User.objects.filter(username=username, email=email).first()
             if user:
                 confirmation_code = user.generate_confirmation_code()
@@ -50,8 +64,7 @@ class SignupView(views.APIView):
                     [user.email],
                     fail_silently=False,
                 )
-                return Response(serializer.data, status=status.HTTP_200_OK)
-
+                return Response(serializer.data, status=HTTP_200_OK)
             user, created = User.objects.get_or_create(
                 username=username,
                 email=email
@@ -65,11 +78,13 @@ class SignupView(views.APIView):
                     [user.email],
                     fail_silently=False,
                 )
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data, status=HTTP_200_OK)
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
 
 class TokenView(viewsets.ViewSet):
+    """Модель проверки токена пользователей."""
+
     permission_classes = [AllowAny]
 
     @action(methods=['POST'], detail=False, url_path='token')
@@ -77,7 +92,7 @@ class TokenView(viewsets.ViewSet):
         serializer = TokenSerializer(data=request.data)
         if serializer.is_valid():
             return self.get_token(request, serializer.validated_data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
     def get_token(self, request, validated_data):
         username = validated_data['username']
@@ -86,14 +101,14 @@ class TokenView(viewsets.ViewSet):
 
         if default_token_generator.check_token(user, confirmation_code):
             token = RefreshToken.for_user(user).access_token
-            return Response({'token': str(token)}, status=status.HTTP_200_OK)
-
+            return Response({'token': str(token)}, status=HTTP_200_OK)
         return Response(
             {'confirmation_code': 'Invalid confirmation code'},
-            status=status.HTTP_400_BAD_REQUEST
+            status=HTTP_400_BAD_REQUEST
         )
 
-    @action(methods=['post'], detail=False, permission_classes=[AllowAny], url_path='signup')
+    @action(methods=['post'], detail=False,
+            permission_classes=[AllowAny], url_path='signup')
     def signup(self, request):
         user = User.objects.filter(
             username=request.data.get('username'),
@@ -111,7 +126,7 @@ class TokenView(viewsets.ViewSet):
                 [user.email],
                 fail_silently=False,
             )
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.data, status=HTTP_200_OK)
         serializer = SignupSerializer(user)
         confirmation_code = default_token_generator.make_token(user)
         send_mail(
@@ -121,10 +136,12 @@ class TokenView(viewsets.ViewSet):
             [user.email],
             fail_silently=False,
         )
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=HTTP_200_OK)
 
 
 class UsersViewSet(ModelViewSet):
+    """По модели пользователей запросы 'get', 'post', 'patch', 'delete'."""
+
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAdmin]
@@ -133,44 +150,56 @@ class UsersViewSet(ModelViewSet):
     filter_backends = (filters.SearchFilter,)
     search_fields = ('username',)
 
-    @action(methods=['get', 'patch'], detail=False, permission_classes=[IsAuthenticated], url_path='me')
+    @action(methods=['get', 'patch'],
+            detail=False,
+            permission_classes=[IsAuthenticated],
+            url_path='me')
     def get_current_user_info(self, request):
         if request.method == 'GET':
             serializer = UserSerializer(request.user)
             return Response(serializer.data)
         elif request.method == 'PATCH':
-            serializer = UserSerializer(request.user, data=request.data, partial=True)
+            serializer = UserSerializer(request.user,
+                                        data=request.data,
+                                        partial=True)
             if 'role' in request.data:
-                return Response({'role': 'Cannot change role'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'role': 'Cannot change role'},
+                                status=HTTP_400_BAD_REQUEST)
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             role = request.data.get('role', 'user')
             if role not in ['user', 'moderator', 'admin']:
-                return Response({'role': 'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'role': 'Invalid role'},
+                                status=HTTP_400_BAD_REQUEST)
             serializer.save(role=role)
             headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data,
+                            status=HTTP_201_CREATED,
+                            headers=headers)
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=HTTP_204_NO_CONTENT)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(instance,
+                                         data=request.data,
+                                         partial=partial)
         if 'role' in request.data:
             role = request.data['role']
             if role not in ['user', 'moderator', 'admin']:
-                return Response({'role': 'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'role': 'Invalid role'},
+                                status=HTTP_400_BAD_REQUEST)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         if getattr(instance, '_prefetched_objects_cache', None):
@@ -179,6 +208,8 @@ class UsersViewSet(ModelViewSet):
 
 
 class CategoryViewSet(ListCreateDestroyMixin):
+    """Получаем список всех категорий. Создание/удаление администраторм."""
+
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     filter_backends = (filters.SearchFilter,)
@@ -189,6 +220,8 @@ class CategoryViewSet(ListCreateDestroyMixin):
 
 
 class GenreViewSet(ListCreateDestroyMixin):
+    """Получаем список всех жанров. Создание/удаление администраторм."""
+
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
     filter_backends = (filters.SearchFilter,)
@@ -198,11 +231,11 @@ class GenreViewSet(ListCreateDestroyMixin):
     pagination_class = StandardResultsSetPagination
 
 
-class TitleViewSet(mixins.CreateModelMixin,
+class TitleViewSet(ListCreateDestroyMixin,
                    mixins.RetrieveModelMixin,
-                   mixins.DestroyModelMixin,
-                   mixins.ListModelMixin,
                    viewsets.GenericViewSet):
+    """Модель по произведениям. Доступна всем, изменения - администратору."""
+
     queryset = Title.objects.all()
     serializer_class = TitleSerializer
     filter_backends = (DjangoFilterBackend,)
@@ -216,20 +249,25 @@ class TitleViewSet(mixins.CreateModelMixin,
         return TitleSerializer
 
     def update(self, request, *args, **kwargs):
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response(status=HTTP_405_METHOD_NOT_ALLOWED)
 
     def partial_update(self, request, *args, **kwargs):
         title = self.get_object()
-        serializer = TitleCreateSerializer(title, data=request.data, partial=True)
+        serializer = TitleCreateSerializer(title,
+                                           data=request.data,
+                                           partial=True)
         if serializer.is_valid():
             if len(serializer.validated_data.get('name', '')) > 256:
-                return Response({'name': 'Name cannot be longer than 256 characters'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'name': 'Name can`t be longer 256 char.'},
+                                status=HTTP_400_BAD_REQUEST)
             serializer.save()
             return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
 
 class ReviewViewSet(ModelViewSet):
+    """Модель отзывов по произведениям. Стандартные запросы кроме PUT."""
+
     permission_classes = (IsAuthorOrModeratorOrReadOnly,)
     serializer_class = ReviewSerializer
     queryset = Review.objects.all()
@@ -246,14 +284,17 @@ class ReviewViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         title = self.get_title()
-        if Review.objects.filter(title=title, author=self.request.user).exists():
-            raise serializers.ValidationError('Review already exists')
+        if Review.objects.filter(title=title,
+                                 author=self.request.user).exists():
+            raise ValidationError('Review already exists')
         serializer.save(title=title, author=self.request.user)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(instance,
+                                         data=request.data,
+                                         partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data)
@@ -262,14 +303,19 @@ class ReviewViewSet(ModelViewSet):
         title = self.get_title()
         review = self.get_object()
         if review.title != title:
-            return Response({'detail': 'Review does not belong to this title'}, status=status.HTTP_400_BAD_REQUEST)
-        serializer = self.get_serializer(review, data=request.data, partial=True)
+            return Response({'detail': 'Review doesn’t belong to this title'},
+                            status=HTTP_400_BAD_REQUEST)
+        serializer = self.get_serializer(review,
+                                         data=request.data,
+                                         partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data)
 
 
 class CommentsViewSet(ModelViewSet):
+    """Модель комментариев по отзывам. Стандартные запросы кроме PUT."""
+
     permission_classes = (IsAuthorOrModeratorOrReadOnly,)
     serializer_class = CommentSerializer
     queryset = Comment.objects.all()
