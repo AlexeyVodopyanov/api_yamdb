@@ -1,4 +1,3 @@
-from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
@@ -33,8 +32,6 @@ from api.serializers import (CategorySerializer,
                              UserSerializer)
 from reviews.models import Category, Comment, Genre, Review, Title, User
 
-#User = get_user_model()
-
 
 class StandardResultsSetPagination(PageNumberPagination):
     """Пагинатор для моделей модуля."""
@@ -54,30 +51,34 @@ class SignupView(views.APIView):
         if serializer.is_valid():
             username = serializer.validated_data['username']
             email = serializer.validated_data['email']
-            user = User.objects.filter(username=username, email=email).first()
-            if user:
-                confirmation_code = user.generate_confirmation_code()
-                send_mail(
-                    'Confirmation code',
-                    f'Your confirmation code is {confirmation_code}',
-                    'from@example.com',
-                    [user.email],
-                    fail_silently=False,
-                )
-                return Response(serializer.data, status=HTTP_200_OK)
+            if User.objects.filter(username=username).exists():
+                existing_user = User.objects.get(username=username)
+                if existing_user.email != email:
+                    return Response(
+                        {"email"},
+                        status=HTTP_400_BAD_REQUEST
+                    )
+
+            if User.objects.filter(email=email).exists():
+                existing_user = User.objects.get(email=email)
+                if existing_user.username != username:
+                    return Response(
+                        {"email"},
+                        status=HTTP_400_BAD_REQUEST
+                    )
+
             user, created = User.objects.get_or_create(
                 username=username,
                 email=email
             )
-            if created:
-                confirmation_code = user.generate_confirmation_code()
-                send_mail(
-                    'Confirmation code',
-                    f'Your confirmation code is {confirmation_code}',
-                    'from@example.com',
-                    [user.email],
-                    fail_silently=False,
-                )
+            confirmation_code = user.generate_confirmation_code()
+            send_mail(
+                'Confirmation code',
+                f'Your confirmation code is {confirmation_code}',
+                'from@example.com',
+                [user.email],
+                fail_silently=False,
+            )
             return Response(serializer.data, status=HTTP_200_OK)
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
