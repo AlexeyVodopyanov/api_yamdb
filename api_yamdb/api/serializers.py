@@ -17,6 +17,8 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class SignupSerializer(serializers.ModelSerializer):
+    username = serializers.SlugField(max_length=150)
+    email = serializers.EmailField(max_length=254)
 
     class Meta:
         model = User
