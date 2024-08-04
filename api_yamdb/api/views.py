@@ -55,16 +55,16 @@ class SignupView(views.APIView):
                 existing_user = User.objects.get(username=username)
                 if existing_user.email != email:
                     return Response(
-                        {"username": ["Кто такие имени есть пользователя уже существует другой адрес на электронную почту."]},
-                        status=status.HTTP_400_BAD_REQUEST
+                        {"email": "Кто такие имени есть пользователя уже существует другой адрес на электронную почту."},
+                        status=HTTP_400_BAD_REQUEST
                     )
 
             if User.objects.filter(email=email).exists():
                 existing_user = User.objects.get(email=email)
                 if existing_user.username != username:
                     return Response(
-                        {"email": ["Кто такие имени есть электронной почты уже существует другой имени на пользователя"]},
-                        status=status.HTTP_400_BAD_REQUEST
+                        {"email": "Кто такие имени есть электронной почты уже существует другой имени на пользователя."},
+                        status=HTTP_400_BAD_REQUEST
                     )
 
             user, created = User.objects.get_or_create(
@@ -79,8 +79,8 @@ class SignupView(views.APIView):
                 [user.email],
                 fail_silently=False,
             )
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data, status=HTTP_200_OK)
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
 
 class TokenView(viewsets.ViewSet):
