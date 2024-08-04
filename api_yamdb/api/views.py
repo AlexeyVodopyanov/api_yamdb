@@ -53,32 +53,16 @@ def signup_users(request):
     if serializer.is_valid():
         username = data['username']
         email = data['email']
-        user = User.objects.filter(username=username, email=email) # delete? '.first()'
-        if not user.exists():
-
-        if user:
-            confirmation_code = user.generate_confirmation_code()
-            send_mail(
-                'Confirmation code',
-                f'Your confirmation code is {confirmation_code}',
-                'from@example.com',
-                [user.email],
-                fail_silently=False,
-            )
-            return Response(serializer.data, status=HTTP_200_OK)
-        user, created = User.objects.get_or_create(
-            username=username,
-            email=email
+        user, create = User.objects.get_or_create(username=username,
+                                                  email=email)
+        confirmation_code = user.generate_confirmation_code()
+        send_mail(
+            'Confirmation code:',
+            f'{confirmation_code}',
+            'from@example.com',
+            [f'{user.email}'],
+            fail_silently=False,
         )
-        if created:
-            confirmation_code = user.generate_confirmation_code()
-            send_mail(
-                'Confirmation code',
-                f'Your confirmation code is {confirmation_code}',
-                'from@example.com',
-                [user.email],
-                fail_silently=False,
-            )
         return Response(serializer.data, status=HTTP_200_OK)
     return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 

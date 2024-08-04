@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Avg
 
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 
 from reviews.models import Category, Comment, Genre, Review, Title
 
@@ -17,6 +18,8 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class SignupSerializer(serializers.ModelSerializer):
+    username = serializers.SlugField(max_length=150)
+    email = serializers.EmailField(max_length=254)
 
     class Meta:
         model = User
