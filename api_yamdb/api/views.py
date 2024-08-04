@@ -30,6 +30,7 @@ from api.serializers import (CategorySerializer,
                              TitleCreateSerializer,
                              TitleSerializer,
                              TokenSerializer,
+                             SignupSerializerUser,
                              UserSerializer)
 from reviews.models import Category, Comment, Genre, Review, Title, User
 
@@ -53,6 +54,18 @@ def signup_users(request):
     if serializer.is_valid():
         username = data['username']
         email = data['email']
+        user = User.objects.filter(username=username)
+        if user.exists():
+            existing_user = get_object_or_404(User, username=username)
+            if existing_user.email != email:
+                serializer = SignupSerializerUser(data={'username': [email]})
+                serializer.is_valid()
+                return Response(serializer.data, status=HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(email=email).exists():
+            existing_user = get_object_or_404(User, email=email)
+            if existing_user.username != username:
+                return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
         user, create = User.objects.get_or_create(username=username,
                                                   email=email)
         confirmation_code = user.generate_confirmation_code()
