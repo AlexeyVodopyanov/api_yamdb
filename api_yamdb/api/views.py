@@ -55,7 +55,7 @@ class SignupView(views.APIView):
                 existing_user = User.objects.get(username=username)
                 if existing_user.email != email:
                     return Response(
-                        {"email"},
+                        {"email": "Кто такие имени есть пользователя уже существует другой адрес на электронную почту."},
                         status=HTTP_400_BAD_REQUEST
                     )
 
@@ -63,7 +63,7 @@ class SignupView(views.APIView):
                 existing_user = User.objects.get(email=email)
                 if existing_user.username != username:
                     return Response(
-                        {"email"},
+                        {"email": "Кто такие имени есть электронной почты уже существует другой имени на пользователя"},
                         status=HTTP_400_BAD_REQUEST
                     )
 

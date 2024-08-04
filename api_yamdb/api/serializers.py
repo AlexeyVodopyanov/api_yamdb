@@ -1,11 +1,15 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Avg
+from django.core.validators import RegexValidator
 
 from rest_framework import serializers
 
 from reviews.models import Category, Comment, Genre, Review, Title
 
 User = get_user_model()
+
+REGEX_SIGNS = RegexValidator(r'^[\w.@+-]+\Z', 'Поддерживать знак.')
+REGEX_ME = RegexValidator(r'[^m][^e]', 'Пользователя не должен быть "me".')
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -17,12 +21,19 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class SignupSerializer(serializers.ModelSerializer):
-    username = serializers.SlugField(max_length=150)
-    email = serializers.EmailField(max_length=254)
+    username = serializers.SlugField(max_length=150, required=True, validators=(REGEX_SIGNS, REGEX_ME))
+    email = serializers.EmailField(max_length=254, required=True)
 
     class Meta:
         model = User
         fields = ('username', 'email')
+
+    def validate(self, data):
+        if 'username' not in data:
+            raise serializers.ValidationError({"username": "This field is required."})
+        if 'email' not in data:
+            raise serializers.ValidationError({"email": "This field is required."})
+        return data
 
     def validate_username(self, value):
         if value == 'me':
@@ -31,8 +42,8 @@ class SignupSerializer(serializers.ModelSerializer):
 
 
 class TokenSerializer(serializers.Serializer):
-    username = serializers.CharField()
-    confirmation_code = serializers.CharField()
+    username = serializers.CharField(required=True, validators=(REGEX_SIGNS, REGEX_ME))
+    confirmation_code = serializers.CharField(required=True)
 
 
 class CategorySerializer(serializers.ModelSerializer):
