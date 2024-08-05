@@ -48,49 +48,47 @@ class SignupView(views.APIView):
 
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
-        if serializer.is_valid():
-            username = serializer.validated_data['username']
-            email = serializer.validated_data['email']
-            list_resp_user = [username]
-            list_resp_email = [email]
-            if User.objects.filter(username=username).exists():
-                if not User.objects.filter(email=email).exists():
-                    return Response({'username': list_resp_user},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                existing_user = User.objects.get(username=username)
-                if existing_user.email != email:
-                    return Response(
-                        {'email': list_resp_email, 'username': list_resp_user},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            if User.objects.filter(email=email).exists():
-                if not User.objects.filter(username=username).exists():
-                    return Response({'email': list_resp_email},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                existing_user = User.objects.get(email=email)
-                if existing_user.username != username:
-                    return Response(
-                        {'email': list_resp_email, 'username': list_resp_user},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                if existing_user.username != username:
-                    return Response({'email': list_resp_email},
-                                    status=HTTP_400_BAD_REQUEST)
-            user, created = User.objects.get_or_create(
-                username=username,
-                email=email
-            )
-            confirmation_code = user.generate_confirmation_code()
-            send_mail(
-                'Confirmation code',
-                f'Your confirmation code is {confirmation_code}',
-                'from@example.com',
-                [user.email],
-                fail_silently=False,
-            )
-            return Response(serializer.data, status=HTTP_200_OK)
-
-        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+        username = serializer.validated_data['username']
+        email = serializer.validated_data['email']
+        user_username_bool = User.objects.filter(username=username)
+        user_email_bool = User.objects.filter(email=email)
+        list_resp_user = [username]
+        list_resp_email = [email]
+        try:
+            email_true_user = (User.objects.get(email=email).username == username)
+        except ValueError:
+            email_true_user = False
+        try:
+            user_true_email = (User.objects.get(username=username).email == email)
+        except ValueError:
+            user_true_email = False
+        message_error = {}
+        if user_username_bool.exists() and not user_true_email or user_email_bool.exists() and not email_true_user:
+            message_error = {'email': list_resp_email,
+                             'username': list_resp_user}
+        elif user_email_bool.exists() and not user_username_bool.exists():
+            message_error = {'email': list_resp_email}
+        elif user_username_bool.exists() and not user_email_bool.exists():
+            message_error = {'username': list_resp_user}
+        else:
+            return Response(message_error, status=status.HTTP_400_BAD_REQUEST)
+        if len(message_error) > 0:
+            return Response(message_error, status=status.HTTP_400_BAD_REQUEST)
+        user, created = User.objects.get_or_create(
+            username=username,
+            email=email
+        )
+        confirmation_code = user.generate_confirmation_code()
+        send_mail(
+            'Confirmation code',
+            f'Your confirmation code is {confirmation_code}',
+            'from@example.com',
+            [user.email],
+            fail_silently=False,
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
 
 
 class TokenView(viewsets.ViewSet):
