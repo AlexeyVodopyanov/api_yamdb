@@ -98,56 +98,31 @@ class TokenView(viewsets.ViewSet):
 
     permission_classes = [AllowAny]
 
+    def get_token(self, request, validated_data):
+        username = validated_data['username']
+        if not User.objects.filter(username=username).exists():
+            return Response({'username': username}, status=status.HTTP_404_NOT_FOUND)
+        user = get_object_or_404(User, username=username)
+        confirmation_code = validated_data.get('confirmation_code')
+        user_confirmation_code = user.confirmation_code
+        if not user_confirmation_code:
+            user_confirmation_code = 0
+        user_confirmation_code = str(user_confirmation_code)
+
+        if user_confirmation_code == confirmation_code:
+            token = RefreshToken.for_user(user).access_token
+            return Response({'token': str(token)}, status=HTTP_200_OK)
+        return Response(
+            {'confirmation_code': 'Ошибка, неверный confirmation code'},
+            status=HTTP_400_BAD_REQUEST
+            )
+
     @action(methods=['POST'], detail=False, url_path='token')
     def post(self, request):
         serializer = TokenSerializer(data=request.data)
         if serializer.is_valid():
             return self.get_token(request, serializer.validated_data)
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
-
-    def get_token(self, request, validated_data):
-        username = validated_data['username']
-        user = get_object_or_404(User, username=username)
-        confirmation_code = validated_data.get('confirmation_code')
-
-        if default_token_generator.check_token(user, confirmation_code):
-            token = RefreshToken.for_user(user).access_token
-            return Response({'token': str(token)}, status=HTTP_200_OK)
-        return Response(
-            {'confirmation_code': 'Invalid confirmation code'},
-            status=HTTP_400_BAD_REQUEST
-        )
-
-    @action(methods=['post'], detail=False,
-            permission_classes=[AllowAny], url_path='signup')
-    def signup(self, request):
-        user = User.objects.filter(
-            username=request.data.get('username'),
-            email=request.data.get('email')
-        ).first()
-        if not user:
-            serializer = SignupSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            user = serializer.save()
-            confirmation_code = default_token_generator.make_token(user)
-            send_mail(
-                'Confirmation code',
-                f'Your confirmation code is {confirmation_code}',
-                'from@example.com',
-                [user.email],
-                fail_silently=False,
-            )
-            return Response(serializer.data, status=HTTP_200_OK)
-        serializer = SignupSerializer(user)
-        confirmation_code = default_token_generator.make_token(user)
-        send_mail(
-            'Confirmation code',
-            f'Your confirmation code is {confirmation_code}',
-            'from@example.com',
-            [user.email],
-            fail_silently=False,
-        )
-        return Response(serializer.data, status=HTTP_200_OK)
 
 
 class UserInfoViewSet(ModelViewSet):

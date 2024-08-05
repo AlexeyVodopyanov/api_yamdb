@@ -21,7 +21,15 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class SignupSerializer(serializers.ModelSerializer):
-    username = serializers.SlugField(max_length=150)
+    username = serializers.RegexField(
+        regex=r'^[\w.@+-]+$',
+        max_length=150,
+        required=True,
+        help_text='Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.',
+        error_messages={
+            'invalid': 'Значение должны состоять только из буквы или цифры или символов подчёркивания или дефисов.',
+        }
+    )
     email = serializers.EmailField(max_length=254)
 
     class Meta:
