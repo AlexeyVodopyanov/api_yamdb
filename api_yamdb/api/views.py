@@ -51,22 +51,31 @@ class SignupView(views.APIView):
         if serializer.is_valid():
             username = serializer.validated_data['username']
             email = serializer.validated_data['email']
+            list_resp_user = [username]
+            list_resp_email = [email]
             if User.objects.filter(username=username).exists():
+                if not User.objects.filter(email=email).exists():
+                    return Response({'username': list_resp_user},
+                                    status=status.HTTP_400_BAD_REQUEST)
                 existing_user = User.objects.get(username=username)
                 if existing_user.email != email:
                     return Response(
-                        {"email": "Кто такие имени есть пользователя уже существует другой адрес на электронную почту."},
-                        status=HTTP_400_BAD_REQUEST
+                        {'email': list_resp_email, 'username': list_resp_user},
+                        status=status.HTTP_400_BAD_REQUEST
                     )
-
             if User.objects.filter(email=email).exists():
+                if not User.objects.filter(username=username).exists():
+                    return Response({'email': list_resp_email},
+                                    status=status.HTTP_400_BAD_REQUEST)
                 existing_user = User.objects.get(email=email)
                 if existing_user.username != username:
                     return Response(
-                        {"email": "Кто такие имени есть электронной почты уже существует другой имени на пользователя."},
-                        status=HTTP_400_BAD_REQUEST
+                        {'email': list_resp_email, 'username': list_resp_user},
+                        status=status.HTTP_400_BAD_REQUEST
                     )
-
+                if existing_user.username != username:
+                    return Response({'email': list_resp_email},
+                                    status=HTTP_400_BAD_REQUEST)
             user, created = User.objects.get_or_create(
                 username=username,
                 email=email
@@ -80,6 +89,7 @@ class SignupView(views.APIView):
                 fail_silently=False,
             )
             return Response(serializer.data, status=HTTP_200_OK)
+
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
 
