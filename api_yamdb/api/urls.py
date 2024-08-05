@@ -8,11 +8,11 @@ from .views import (CategoryViewSet, CommentsViewSet, GenreViewSet,
 r = SimpleRouter()
 
 r.register(r'titles/(?P<title_id>\d+)/reviews/(?P<review_id>\d+)/comments',
-                CommentsViewSet,
-                basename='comments')
+           CommentsViewSet,
+           basename='comments')
 r.register(r'titles/(?P<title_id>\d+)/reviews',
-                ReviewViewSet,
-                basename='reviews')
+           ReviewViewSet,
+           basename='reviews')
 r.register('users', UsersViewSet, basename='users')
 r.register('categories', CategoryViewSet, basename='categories')
 r.register('genres', GenreViewSet, basename='genres')
