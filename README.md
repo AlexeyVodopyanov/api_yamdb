@@ -182,6 +182,5 @@ pytest и коллекция postman
 
 Водопьянов Алексей
 
-Лисицин Сергей (https://github.com/SergeyLisa) @SergeyLisa
-
+Лисицин Сергей (https://github.com/SergeyLisa)
 Черемисов Алексей (https://github.com/Karestwww)
