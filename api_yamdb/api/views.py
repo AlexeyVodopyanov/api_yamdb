@@ -56,14 +56,8 @@ class SignupView(views.APIView):
         user_email_bool = User.objects.filter(email=email)
         list_resp_user = [username]
         list_resp_email = [email]
-        try:
-            email_true_user = (User.objects.get(email=email).username == username)
-        except ValueError:
-            email_true_user = False
-        try:
-            user_true_email = (User.objects.get(username=username).email == email)
-        except ValueError:
-            user_true_email = False
+        email_true_user = (User.objects.get(email=email).username == username)
+        user_true_email = (User.objects.get(username=username).email == email)
         message_error = {}
         if user_username_bool.exists() and not user_true_email or user_email_bool.exists() and not email_true_user:
             message_error = {'email': list_resp_email,
