@@ -1,4 +1,3 @@
-from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 
@@ -101,7 +100,8 @@ class TokenView(viewsets.ViewSet):
     def get_token(self, request, validated_data):
         username = validated_data['username']
         if not User.objects.filter(username=username).exists():
-            return Response({'username': username}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'username': username},
+                            status=status.HTTP_404_NOT_FOUND)
         user = get_object_or_404(User, username=username)
         confirmation_code = validated_data.get('confirmation_code')
         user_confirmation_code = user.confirmation_code
@@ -115,7 +115,7 @@ class TokenView(viewsets.ViewSet):
         return Response(
             {'confirmation_code': 'Ошибка, неверный confirmation code'},
             status=HTTP_400_BAD_REQUEST
-            )
+        )
 
     @action(methods=['POST'], detail=False, url_path='token')
     def post(self, request):
