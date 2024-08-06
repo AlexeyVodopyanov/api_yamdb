@@ -1,7 +1,7 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db.models import Avg
 from django.core.validators import RegexValidator
-
+from django.db.models import Avg
 from rest_framework import serializers
 
 from reviews.models import Category, Comment, Genre, Review, Title
@@ -55,7 +55,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ('name', 'slug')
+        exclude = ('id',)
         lookup_field = 'slug'
 
 
@@ -63,7 +63,7 @@ class GenreSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Genre
-        fields = ('name', 'slug')
+        exclude = ('id',)
         lookup_field = 'slug'
 
 
@@ -81,6 +81,12 @@ class TitleSerializer(serializers.ModelSerializer):
     def get_rating(self, obj):
         score = obj.reviews.aggregate(Avg('score'))
         return score['score__avg']
+    
+    # def validate_year(self, value):
+    #     year = datetime.date.today().year
+    #     if value not in range(settings.TITLES_MIN_YEAR, year):
+    #         raise serializers.ValidationError('Проверьте год!')
+    #     return value
 
 
 class TitleCreateSerializer(serializers.ModelSerializer):
@@ -93,18 +99,13 @@ class TitleCreateSerializer(serializers.ModelSerializer):
         slug_field='slug',
         many=True
     )
-    rating = serializers.SerializerMethodField()
     name = serializers.CharField(max_length=256)
 
     class Meta:
         model = Title
         fields = (
-            'id', 'name', 'year', 'description', 'genre', 'category', 'rating'
+            'id', 'name', 'year', 'description', 'genre', 'category',
         )
-
-    def get_rating(self, obj):
-        score = obj.reviews.aggregate(Avg('score'))
-        return score['score__avg']
 
 
 class ReviewSerializer(serializers.ModelSerializer):
