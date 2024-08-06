@@ -13,6 +13,7 @@ REGEX_ME = RegexValidator(r'[^m][^e]', 'Пользователя не долже
 
 
 class UserSerializer(serializers.ModelSerializer):
+    # bio = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = User

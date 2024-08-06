@@ -7,7 +7,7 @@ class User(AbstractUser):
     """Модель пользователей"""
 
     email = models.EmailField(max_length=254, unique=True)
-    bio = models.TextField(blank=True, null=True)
+    bio = models.TextField(blank=True)
     role = models.CharField(max_length=20, choices=[
         ('user', 'User'),
         ('moderator', 'Moderator'),
