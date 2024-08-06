@@ -143,17 +143,15 @@ class UserInfoViewSet(ModelViewSet):
         if request.method == 'GET':
             serializer = UserSerializer(request.user)
             return Response(serializer.data)
-        elif request.method == 'PATCH':
-            serializer = UserSerializer(request.user,
-                                        data=request.data,
-                                        partial=True)
-            if 'role' in request.data:
-                return Response({'role': 'Cannot change role'},
-                                status=HTTP_400_BAD_REQUEST)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+        serializer = UserSerializer(request.user, data=request.data,
+                                    partial=True)
+        if 'role' in request.data:
+            return Response({'role': 'Cannot change role'},
+                            status=HTTP_400_BAD_REQUEST)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
 
 class UsersViewSet(ModelViewSet):
@@ -166,42 +164,6 @@ class UsersViewSet(ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete']
     filter_backends = (filters.SearchFilter,)
     search_fields = ('username',)
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            role = request.data.get('role', 'user')
-            if role not in ['user', 'moderator', 'admin']:
-                return Response({'role': 'Invalid role'},
-                                status=HTTP_400_BAD_REQUEST)
-            serializer.save(role=role)
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data,
-                            status=HTTP_201_CREATED,
-                            headers=headers)
-        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        self.perform_destroy(instance)
-        return Response(status=HTTP_204_NO_CONTENT)
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance,
-                                         data=request.data,
-                                         partial=partial)
-        if 'role' in request.data:
-            role = request.data['role']
-            if role not in ['user', 'moderator', 'admin']:
-                return Response({'role': 'Invalid role'},
-                                status=HTTP_400_BAD_REQUEST)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        if getattr(instance, '_prefetched_objects_cache', None):
-            instance._prefetched_objects_cache = {}
-        return Response(serializer.data)
 
 
 class CategoryViewSet(ListCreateDestroyMixin):
@@ -228,17 +190,15 @@ class GenreViewSet(ListCreateDestroyMixin):
     pagination_class = StandardResultsSetPagination
 
 
-class TitleViewSet(ListCreateDestroyMixin,
-                   mixins.RetrieveModelMixin,
-                   viewsets.GenericViewSet):
+class TitleViewSet(ModelViewSet):
     """Модель по произведениям. Доступна всем, изменения - администратору."""
 
     queryset = Title.objects.all()
-    serializer_class = TitleSerializer
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
     permission_classes = (IsAdminOrReadOnly,)
     pagination_class = StandardResultsSetPagination
+    http_method_names = ['get', 'post', 'patch', 'delete']
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -251,23 +211,6 @@ class TitleViewSet(ListCreateDestroyMixin,
         if self.action in ('create', 'partial_update'):
             return TitleCreateSerializer
         return TitleSerializer
-
-    def update(self, request, *args, **kwargs):
-        return Response(status=HTTP_405_METHOD_NOT_ALLOWED)
-
-    def partial_update(self, request, *args, **kwargs):
-        title = self.get_object()
-        serializer = TitleCreateSerializer(title,
-                                           data=request.data,
-                                           partial=True)
-        if serializer.is_valid():
-            if len(serializer.validated_data.get('name', '')) > 256:
-                return Response({'name': 'Name can`t be longer 256 char.'},
-                                status=HTTP_400_BAD_REQUEST)
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
-
 
 
 class ReviewViewSet(ModelViewSet):
@@ -293,29 +236,6 @@ class ReviewViewSet(ModelViewSet):
                                  author=self.request.user).exists():
             raise ValidationError('Review already exists')
         serializer.save(title=title, author=self.request.user)
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance,
-                                         data=request.data,
-                                         partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        return Response(serializer.data)
-
-    def partial_update(self, request, *args, **kwargs):
-        title = self.get_title()
-        review = self.get_object()
-        if review.title != title:
-            return Response({'detail': 'Review doesn’t belong to this title'},
-                            status=HTTP_400_BAD_REQUEST)
-        serializer = self.get_serializer(review,
-                                         data=request.data,
-                                         partial=True)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        return Response(serializer.data)
 
 
 class CommentsViewSet(ModelViewSet):
