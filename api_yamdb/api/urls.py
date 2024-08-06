@@ -5,19 +5,19 @@ from .views import (CategoryViewSet, CommentsViewSet, GenreViewSet,
                     ReviewViewSet, SignupView, TitleViewSet, TokenView,
                     UsersViewSet, UserInfoViewSet)
 
-router = SimpleRouter()
+r = SimpleRouter()
 
-router.register(r'titles/(?P<title_id>\d+)/reviews/(?P<review_id>\d+)/comments',
-                CommentsViewSet,
-                basename='comments')
-router.register(r'titles/(?P<title_id>\d+)/reviews',
-                ReviewViewSet,
-                basename='reviews')
-router.register('users', UsersViewSet, basename='users')
-router.register('categories', CategoryViewSet, basename='categories')
-router.register('genres', GenreViewSet, basename='genres')
-router.register('titles', TitleViewSet, basename='title')
-router.register(r'auth', TokenView, basename='auth')
+r.register(r'titles/(?P<title_id>\d+)/reviews/(?P<review_id>\d+)/comments',
+           CommentsViewSet,
+           basename='comments')
+r.register(r'titles/(?P<title_id>\d+)/reviews',
+           ReviewViewSet,
+           basename='reviews')
+r.register('users', UsersViewSet, basename='users')
+r.register('categories', CategoryViewSet, basename='categories')
+r.register('genres', GenreViewSet, basename='genres')
+r.register('titles', TitleViewSet, basename='title')
+r.register(r'auth', TokenView, basename='auth')
 
 app_name = 'api'
 
@@ -28,7 +28,7 @@ patterns_version_1 = [
                                   'patch': 'get_current_user_info'}),
          name='current_user'),
     path('auth/signup/', SignupView.as_view(), name='signup'),
-    path('', include(router.urls)),
+    path('', include(r.urls)),
 
 ]
 

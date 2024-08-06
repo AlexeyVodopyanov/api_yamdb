@@ -1,4 +1,3 @@
-from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 from django.db.models import Avg
@@ -31,14 +30,8 @@ from api.serializers import (CategorySerializer,
                              TokenSerializer,
                              UserSerializer)
 from reviews.models import Category, Comment, Genre, Review, Title, User
-
-
-class StandardResultsSetPagination(PageNumberPagination):
-    """Пагинатор для моделей модуля."""
-
-    page_size = 3
-    page_size_query_param = 'page_size'
-    max_page_size = 1000
+from django.conf import settings
+from .paginators import StandardResultsSetPagination
 
 
 class SignupView(views.APIView):
@@ -48,49 +41,24 @@ class SignupView(views.APIView):
 
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
-        if serializer.is_valid():
-            username = serializer.validated_data['username']
-            email = serializer.validated_data['email']
-            list_resp_user = [username]
-            list_resp_email = [email]
-            if User.objects.filter(username=username).exists():
-                if not User.objects.filter(email=email).exists():
-                    return Response({'username': list_resp_user},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                existing_user = User.objects.get(username=username)
-                if existing_user.email != email:
-                    return Response(
-                        {'email': list_resp_email, 'username': list_resp_user},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            if User.objects.filter(email=email).exists():
-                if not User.objects.filter(username=username).exists():
-                    return Response({'email': list_resp_email},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                existing_user = User.objects.get(email=email)
-                if existing_user.username != username:
-                    return Response(
-                        {'email': list_resp_email, 'username': list_resp_user},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                if existing_user.username != username:
-                    return Response({'email': list_resp_email},
-                                    status=HTTP_400_BAD_REQUEST)
-            user, created = User.objects.get_or_create(
-                username=username,
-                email=email
-            )
-            confirmation_code = user.generate_confirmation_code()
-            send_mail(
-                'Confirmation code',
-                f'Your confirmation code is {confirmation_code}',
-                'from@example.com',
-                [user.email],
-                fail_silently=False,
-            )
-            return Response(serializer.data, status=HTTP_200_OK)
+        serializer.is_valid(raise_exception=True)
 
-        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+        username = serializer.validated_data['username']
+        email = serializer.validated_data['email']
+
+        user, created = User.objects.get_or_create(
+            username=username,
+            email=email
+        )
+        confirmation_code = user.generate_confirmation_code()
+        send_mail(
+            'Confirmation code',
+            f'Your confirmation code is {confirmation_code}',
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
 
 
 class TokenView(viewsets.ViewSet):
@@ -101,7 +69,8 @@ class TokenView(viewsets.ViewSet):
     def get_token(self, request, validated_data):
         username = validated_data['username']
         if not User.objects.filter(username=username).exists():
-            return Response({'username': username}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'username': username},
+                            status=status.HTTP_404_NOT_FOUND)
         user = get_object_or_404(User, username=username)
         confirmation_code = validated_data.get('confirmation_code')
         user_confirmation_code = user.confirmation_code
@@ -111,19 +80,20 @@ class TokenView(viewsets.ViewSet):
 
         if user_confirmation_code == confirmation_code:
             token = RefreshToken.for_user(user).access_token
-            return Response({'token': str(token)}, status=HTTP_200_OK)
+            return Response({'token': str(token)}, status=status.HTTP_200_OK)
         return Response(
             {'confirmation_code': 'Ошибка, неверный confirmation code'},
-            status=HTTP_400_BAD_REQUEST
-            )
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     @action(methods=['POST'], detail=False, url_path='token')
     def post(self, request):
         serializer = TokenSerializer(data=request.data)
-        if serializer.is_valid():
+        try:
+            serializer.is_valid(raise_exception=True)
             return self.get_token(request, serializer.validated_data)
-        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
-
+        except ValidationError as e:
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
 class UserInfoViewSet(ModelViewSet):
     """Пользователь смотрит о себе информацию (get) и меняеет ее (patch)."""
@@ -135,25 +105,18 @@ class UserInfoViewSet(ModelViewSet):
     http_method_names = ['get', 'patch']
     search_fields = ('username',)
 
-    @action(methods=['get', 'patch'],
-            detail=False,
-            permission_classes=[IsAuthenticated],
-            url_path='me')
+    @action(methods=['get', 'patch'], detail=False, permission_classes=[IsAuthenticated], url_path='me')
     def get_current_user_info(self, request):
         if request.method == 'GET':
             serializer = UserSerializer(request.user)
-            return Response(serializer.data)
-        elif request.method == 'PATCH':
-            serializer = UserSerializer(request.user,
-                                        data=request.data,
-                                        partial=True)
-            if 'role' in request.data:
-                return Response({'role': 'Cannot change role'},
-                                status=HTTP_400_BAD_REQUEST)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+            return Response(serializer.data, status=HTTP_200_OK)
+
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        if 'role' in request.data:
+            return Response({'role': 'Cannot change role'}, status=HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response(serializer.data)
 
 
 class UsersViewSet(ModelViewSet):
@@ -169,39 +132,20 @@ class UsersViewSet(ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            role = request.data.get('role', 'user')
-            if role not in ['user', 'moderator', 'admin']:
-                return Response({'role': 'Invalid role'},
-                                status=HTTP_400_BAD_REQUEST)
-            serializer.save(role=role)
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data,
-                            status=HTTP_201_CREATED,
-                            headers=headers)
-        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        self.perform_destroy(instance)
-        return Response(status=HTTP_204_NO_CONTENT)
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance,
-                                         data=request.data,
-                                         partial=partial)
-        if 'role' in request.data:
-            role = request.data['role']
-            if role not in ['user', 'moderator', 'admin']:
-                return Response({'role': 'Invalid role'},
-                                status=HTTP_400_BAD_REQUEST)
         serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        if getattr(instance, '_prefetched_objects_cache', None):
-            instance._prefetched_objects_cache = {}
-        return Response(serializer.data)
+        role = request.data.get('role', 'user')
+        if role not in ['user', 'moderator', 'admin']:
+            return Response({'role': 'Invalid role'}, status=HTTP_400_BAD_REQUEST)
+        serializer.save(role=role)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=HTTP_201_CREATED, headers=headers)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        role = request.data.get('role')
+        if role and role not in ['user', 'moderator', 'admin']:
+            return Response({'role': 'Invalid role'}, status=HTTP_400_BAD_REQUEST)
+        return super().partial_update(request, *args, **kwargs)
 
 
 class CategoryViewSet(ListCreateDestroyMixin):
@@ -216,7 +160,8 @@ class CategoryViewSet(ListCreateDestroyMixin):
     pagination_class = StandardResultsSetPagination
 
 
-class GenreViewSet(ListCreateDestroyMixin):
+class GenreViewSet(ListCreateDestroyMixin,
+                   viewsets.GenericViewSet):
     """Получаем список всех жанров. Создание/удаление администраторм."""
 
     queryset = Genre.objects.all()
@@ -233,7 +178,7 @@ class TitleViewSet(ListCreateDestroyMixin,
                    viewsets.GenericViewSet):
     """Модель по произведениям. Доступна всем, изменения - администратору."""
 
-    queryset = Title.objects.all()
+    queryset = Title.objects.annotate(rating=Avg('reviews__score')).all()
     serializer_class = TitleSerializer
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
@@ -248,26 +193,20 @@ class TitleViewSet(ListCreateDestroyMixin,
         return queryset
 
     def get_serializer_class(self):
-        if self.action in ('create', 'partial_update'):
+        if self.action in ['create', 'update', 'partial_update']:
             return TitleCreateSerializer
         return TitleSerializer
 
-    def update(self, request, *args, **kwargs):
-        return Response(status=HTTP_405_METHOD_NOT_ALLOWED)
-
     def partial_update(self, request, *args, **kwargs):
         title = self.get_object()
-        serializer = TitleCreateSerializer(title,
-                                           data=request.data,
-                                           partial=True)
+        serializer = TitleCreateSerializer(title, data=request.data, partial=True)
         if serializer.is_valid():
             if len(serializer.validated_data.get('name', '')) > 256:
-                return Response({'name': 'Name can`t be longer 256 char.'},
-                                status=HTTP_400_BAD_REQUEST)
+                return Response({'name': 'Name can\'t be longer than 256 characters.'},
+                                status=status.HTTP_400_BAD_REQUEST)
             serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
-
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ReviewViewSet(ModelViewSet):
@@ -293,29 +232,6 @@ class ReviewViewSet(ModelViewSet):
                                  author=self.request.user).exists():
             raise ValidationError('Review already exists')
         serializer.save(title=title, author=self.request.user)
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance,
-                                         data=request.data,
-                                         partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        return Response(serializer.data)
-
-    def partial_update(self, request, *args, **kwargs):
-        title = self.get_title()
-        review = self.get_object()
-        if review.title != title:
-            return Response({'detail': 'Review doesn’t belong to this title'},
-                            status=HTTP_400_BAD_REQUEST)
-        serializer = self.get_serializer(review,
-                                         data=request.data,
-                                         partial=True)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        return Response(serializer.data)
 
 
 class CommentsViewSet(ModelViewSet):

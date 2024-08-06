@@ -54,16 +54,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'api_yamdb.wsgi.application'
 
-
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
-
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -80,8 +76,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-
 LANGUAGE_CODE = 'ru-ru'
 
 TIME_ZONE = 'UTC'
@@ -91,8 +85,6 @@ USE_I18N = True
 USE_L10N = True
 
 USE_TZ = True
-
-
 
 STATIC_URL = '/static/'
 
@@ -122,3 +114,5 @@ SIMPLE_JWT = {
 EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
 
 EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
+
+DEFAULT_FROM_EMAIL = 'from@example.com'
