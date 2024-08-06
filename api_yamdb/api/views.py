@@ -1,7 +1,7 @@
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
-
+from django.db.models import Avg
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, views, viewsets, status
 from rest_framework.decorators import action
@@ -240,6 +240,13 @@ class TitleViewSet(ListCreateDestroyMixin,
     permission_classes = (IsAdminOrReadOnly,)
     pagination_class = StandardResultsSetPagination
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        for title in queryset:
+            score = title.reviews.aggregate(Avg('score'))
+            title.rating = score['score__avg']
+        return queryset
+
     def get_serializer_class(self):
         if self.action in ('create', 'partial_update'):
             return TitleCreateSerializer
@@ -260,6 +267,7 @@ class TitleViewSet(ListCreateDestroyMixin,
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+
 
 
 class ReviewViewSet(ModelViewSet):
