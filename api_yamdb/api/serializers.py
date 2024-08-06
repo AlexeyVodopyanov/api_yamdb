@@ -22,17 +22,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class SignupSerializer(serializers.ModelSerializer):
-    username = serializers.RegexField(
-        regex=r'^[\w.@+-]+$',
-        max_length=150,
-        required=True,
-        help_text='Тербуется  не более 150 символов. '
-                  'Только буквы, цифры и @/./+/-/_.',
-        error_messages={
-            'invalid': ('Значение должны состоять только из буквы или '
-                        'цифры или символов подчёркивания или дефисов.'),
-        }
-    )
+    username = serializers.SlugField(max_length=150)
     email = serializers.EmailField(max_length=254)
 
     class Meta:
@@ -43,6 +33,28 @@ class SignupSerializer(serializers.ModelSerializer):
         if value == 'me':
             raise serializers.ValidationError("Username 'me' is not allowed.")
         return value
+
+    def validate_email(self, value):
+        return value
+
+    def validate(self, data):
+        username = data.get('username')
+        email = data.get('email')
+
+        user_with_same_username = User.objects.filter(username=username).first()
+        user_with_same_email = User.objects.filter(email=email).first()
+
+        if user_with_same_username and user_with_same_username.email != email:
+            raise serializers.ValidationError(
+                {"email": "Этот email уже используется другим пользователем."}
+            )
+
+        if user_with_same_email and user_with_same_email.username != username:
+            raise serializers.ValidationError(
+                {"username": "Этот username уже используется другим пользователем."}
+            )
+
+        return data
 
 
 class TokenSerializer(serializers.Serializer):
@@ -70,7 +82,7 @@ class GenreSerializer(serializers.ModelSerializer):
 class TitleSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     genre = GenreSerializer(many=True, read_only=True)
-    rating = serializers.SerializerMethodField()
+    rating = serializers.FloatField(read_only=True)
 
     class Meta:
         model = Title
@@ -78,15 +90,12 @@ class TitleSerializer(serializers.ModelSerializer):
             'id', 'name', 'year', 'description', 'genre', 'category', 'rating'
         )
 
-    def get_rating(self, obj):
-        score = obj.reviews.aggregate(Avg('score'))
-        return score['score__avg']
-    
-    # def validate_year(self, value):
-    #     year = datetime.date.today().year
-    #     if value not in range(settings.TITLES_MIN_YEAR, year):
-    #         raise serializers.ValidationError('Проверьте год!')
-    #     return value
+    def validate_year(self, value):
+        current_year = datetime.date.today().year
+        if not settings.TITLES_MIN_YEAR <= value <= current_year:
+            raise serializers.ValidationError(
+                'Invalid year. Year must be between {} and {}'.format(settings.TITLES_MIN_YEAR, current_year))
+        return value
 
 
 class TitleCreateSerializer(serializers.ModelSerializer):

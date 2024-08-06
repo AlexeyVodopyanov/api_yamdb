@@ -1,6 +1,46 @@
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+import uuid
+
+USER_ROLES = [
+    ('user', 'User'),
+    ('moderator', 'Moderator'),
+    ('admin', 'Admin'),
+]
+
+
+class AbstractBaseModel(models.Model):
+    """Абстрактная базовая модель с общими полями."""
+    name = models.CharField(
+        max_length=256,
+        default=None,
+        verbose_name='Название'
+    )
+    slug = models.SlugField(
+        max_length=50,
+        unique=True,
+        verbose_name='Слаг'
+    )
+
+    class Meta:
+        abstract = True
+
+
+class AbstractCommentBase(models.Model):
+    """Абстрактная модель для общих полей комментариев."""
+    text = models.TextField(verbose_name='Текст')
+    author = models.ForeignKey(
+        'User',
+        verbose_name='Автор комментария',
+        on_delete=models.CASCADE,
+        related_name='%(class)s_comments'
+    )
+    pub_date = models.DateTimeField('Дата добавления комментария', auto_now_add=True)
+
+    class Meta:
+        abstract = True
+        ordering = ('pub_date', 'author')
 
 
 class User(AbstractUser):
@@ -8,11 +48,7 @@ class User(AbstractUser):
 
     email = models.EmailField(max_length=254, unique=True)
     bio = models.TextField(blank=True)
-    role = models.CharField(max_length=20, choices=[
-        ('user', 'User'),
-        ('moderator', 'Moderator'),
-        ('admin', 'Admin'),
-    ], default='user')
+    role = models.CharField(max_length=20, choices=USER_ROLES, default='user')
     confirmation_code = models.CharField(max_length=36, blank=True, null=True)
     groups = models.ManyToManyField(Group,
                                     related_name='reviews_users',
@@ -27,7 +63,8 @@ class User(AbstractUser):
         return self.username
 
     def generate_confirmation_code(self):
-        self.save()
+        """Генерирует новый код подтверждения и возвращает его."""
+        self.confirmation_code = str(uuid.uuid4())
         return self.confirmation_code
 
     class Meta:
@@ -59,27 +96,13 @@ class Category(models.Model):
         return self.name
 
 
-class Genre(models.Model):
+class Genre(AbstractBaseModel):
     """Модель Жанров произведений"""
-
-    name = models.CharField(
-        max_length=256,
-        default=None,
-        verbose_name='Название'
-    )
-    slug = models.SlugField(
-        max_length=50,
-        unique=True,
-        verbose_name='Слаг'
-    )
 
     class Meta:
         verbose_name = 'жанр'
         verbose_name_plural = 'Жанры'
         ordering = ('name', 'slug')
-
-    def __str__(self):
-        return self.name
 
 
 class Title(models.Model):
@@ -152,44 +175,35 @@ class Review(models.Model):
         on_delete=models.CASCADE,
         related_name='reviews'
     )
-    pub_date = models.DateTimeField(
-        'Дата публикации отзыва', auto_now_add=True)
+    pub_date = models.DateTimeField('Дата публикации отзыва', auto_now_add=True)
     score = models.IntegerField(
         verbose_name='Оценка произведения',
         default=1,
-        validators=[MinValueValidator(1), MaxValueValidator(10)]
+        validators=[
+            MinValueValidator(1, message='Оценка должна быть больше или равна 1.'),
+            MaxValueValidator(10, message='Оценка не может быть больше 10.')
+        ]
     )
 
     class Meta:
         verbose_name = 'отзыв'
         verbose_name_plural = 'Отзывы'
         constraints = [
-            models.UniqueConstraint(fields=('author', 'title'),
-                                    name='unique_author_title')
+            models.UniqueConstraint(fields=('author', 'title'), name='unique_author_title')
         ]
         ordering = ('pub_date', 'author')
 
 
-class Comment(models.Model):
+class Comment(AbstractCommentBase):
     """Модель комментариев по отзывам"""
 
-    text = models.TextField(verbose_name='Текст')
-    author = models.ForeignKey(
-        User,
-        verbose_name='Автор комментария',
-        on_delete=models.CASCADE,
-        related_name='comments'
-    )
     review = models.ForeignKey(
         Review,
         verbose_name='Комментируемый отзыв',
         on_delete=models.CASCADE,
         related_name='comments'
     )
-    pub_date = models.DateTimeField(
-        'Дата добавления комментария', auto_now_add=True)
 
     class Meta:
         verbose_name = 'комментарий'
         verbose_name_plural = 'Комментарии'
-        ordering = ('pub_date', 'author')
