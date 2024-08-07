@@ -1,5 +1,6 @@
 from rest_framework.pagination import PageNumberPagination
 
+
 class StandardResultsSetPagination(PageNumberPagination):
     """Пагинатор для моделей модуля."""
 
