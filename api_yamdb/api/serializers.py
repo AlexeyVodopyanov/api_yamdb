@@ -1,18 +1,18 @@
+import datetime
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Avg
-from django.core.validators import RegexValidator
-
 from rest_framework import serializers
 
+from api.constants import REGEX_SIGNS, REGEX_ME
 from reviews.models import Category, Comment, Genre, Review, Title
 
 User = get_user_model()
 
-REGEX_SIGNS = RegexValidator(r'^[\w.@+-]+\Z', 'Поддерживать знак.')
-REGEX_ME = RegexValidator(r'[^m][^e]', 'Пользователя не должен быть "me".')
-
 
 class UserSerializer(serializers.ModelSerializer):
+    role = serializers.ChoiceField(choices=['user', 'moderator', 'admin',],
+                                   required=False)
 
     class Meta:
         model = User
@@ -26,11 +26,9 @@ class SignupSerializer(serializers.ModelSerializer):
         regex=r'^[\w.@+-]+$',
         max_length=150,
         required=True,
-        help_text='Тербуется  не более 150 символов. '
-                  'Только буквы, цифры и @/./+/-/_.',
+        help_text='Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.',
         error_messages={
-            'invalid': ('Значение должны состоять только из буквы или '
-                        'цифры или символов подчёркивания или дефисов.'),
+            'invalid': 'Значение должны состоять только из буквы или цифры или символов подчёркивания или дефисов.',
         }
     )
     email = serializers.EmailField(max_length=254)
@@ -55,7 +53,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ('name', 'slug')
+        exclude = ('id',)
         lookup_field = 'slug'
 
 
@@ -63,14 +61,15 @@ class GenreSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Genre
-        fields = ('name', 'slug')
+        exclude = ('id',)
         lookup_field = 'slug'
 
 
 class TitleSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     genre = GenreSerializer(many=True, read_only=True)
-    rating = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()  # FloatField(read_only=True)
+    # year = serializers.IntegerField(max_value=datetime.date.today().year)
 
     class Meta:
         model = Title
@@ -93,19 +92,10 @@ class TitleCreateSerializer(serializers.ModelSerializer):
         slug_field='slug',
         many=True
     )
-    rating = serializers.SerializerMethodField()
-    name = serializers.CharField(max_length=256)
 
     class Meta:
         model = Title
-        fields = (
-            'id', 'name', 'year', 'description', 'genre', 'category', 'rating'
-        )
-
-    def get_rating(self, obj):
-        score = obj.reviews.aggregate(Avg('score'))
-        return score['score__avg']
-
+        fields = '__all__'
 
 class ReviewSerializer(serializers.ModelSerializer):
     author = serializers.SlugRelatedField(read_only=True,
