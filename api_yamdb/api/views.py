@@ -1,93 +1,28 @@
+from django.conf import settings
 from django.core.mail import send_mail
-from django.shortcuts import get_object_or_404
 from django.db.models import Avg
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, mixins, views, viewsets, status
+from rest_framework import filters, status, views, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.serializers import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.status import (HTTP_200_OK,
-                                   HTTP_201_CREATED,
-                                   HTTP_204_NO_CONTENT,
-                                   HTTP_400_BAD_REQUEST,
-                                   HTTP_404_NOT_FOUND,
-                                   HTTP_405_METHOD_NOT_ALLOWED)
+from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 from rest_framework.viewsets import ModelViewSet
 
 from api.filters import TitleFilter
 from api.mixins import ListCreateDestroyMixin
 from api.paginators import StandardResultsSetPagination
-from api.permissions import (IsAdmin, IsAdminOrReadOnly,
-                             IsAuthorOrModeratorOrReadOnly)
-from api.serializers import (CategorySerializer,
-                             CommentSerializer,
-                             GenreSerializer,
-                             ReviewSerializer,
-                             SignupSerializer,
-                             TitleCreateSerializer,
-                             TitleSerializer,
-                             TokenSerializer,
-                             UserSerializer)
+from api.permissions import IsAdmin, IsAdminOrReadOnly, IsAuthorOrModeratorOrReadOnly
+from api.serializers import (CategorySerializer, CommentSerializer, GenreSerializer,
+                             ReviewSerializer, SignupSerializer, TitleCreateSerializer,
+                             TitleSerializer, TokenSerializer, UserSerializer)
 from reviews.models import Category, Comment, Genre, Review, Title, User
-from django.conf import settings
 
 
 class SignupView(views.APIView):
-    """Модель подключения пользователей."""
-
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        serializer = SignupSerializer(data=request.data)
-        if serializer.is_valid():
-            username = serializer.validated_data['username']
-            email = serializer.validated_data['email']
-            list_resp_user = [username]
-            list_resp_email = [email]
-            if User.objects.filter(username=username).exists():
-                if not User.objects.filter(email=email).exists():
-                    return Response({'username': list_resp_user},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                existing_user = User.objects.get(username=username)
-                if existing_user.email != email:
-                    return Response(
-                        {'email': list_resp_email, 'username': list_resp_user},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            if User.objects.filter(email=email).exists():
-                if not User.objects.filter(username=username).exists():
-                    return Response({'email': list_resp_email},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                existing_user = User.objects.get(email=email)
-                if existing_user.username != username:
-                    return Response(
-                        {'email': list_resp_email, 'username': list_resp_user},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                if existing_user.username != username:
-                    return Response({'email': list_resp_email},
-                                    status=HTTP_400_BAD_REQUEST)
-            user, created = User.objects.get_or_create(
-                username=username,
-                email=email
-            )
-            confirmation_code = user.generate_confirmation_code()
-            send_mail(
-                'Confirmation code',
-                f'Your confirmation code is {confirmation_code}',
-                'from@example.com',
-                [user.email],
-                fail_silently=False,
-            )
-            return Response(serializer.data, status=HTTP_200_OK)
-
-        return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
-
-
-'''class SignupView(views.APIView):
     """Модель подключения пользователей."""
 
     permission_classes = [AllowAny]
@@ -111,7 +46,7 @@ class SignupView(views.APIView):
             [user.email],
             fail_silently=False,
         )
-        return Response(serializer.data, status=HTTP_200_OK)'''
+        return Response(serializer.data, status=HTTP_200_OK)
 
 
 class TokenView(viewsets.ViewSet):
@@ -119,17 +54,15 @@ class TokenView(viewsets.ViewSet):
 
     permission_classes = [AllowAny]
 
-    def get_token(self, request, validated_data):
-        username = validated_data['username']
-        if not User.objects.filter(username=username).exists():
-            return Response({'username': username},
-                            status=HTTP_404_NOT_FOUND)
+    @action(methods=['POST'], detail=False, url_path='token')
+    def post(self, request):
+        serializer = TokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        username = serializer.validated_data['username']
+        confirmation_code = serializer.validated_data.get('confirmation_code')
+
         user = get_object_or_404(User, username=username)
-        confirmation_code = validated_data.get('confirmation_code')
-        user_confirmation_code = user.confirmation_code
-        if not user_confirmation_code:
-            user_confirmation_code = 0
-        user_confirmation_code = str(user_confirmation_code)
+        user_confirmation_code = str(user.confirmation_code or 0)
 
         if user_confirmation_code == confirmation_code:
             token = RefreshToken.for_user(user).access_token
@@ -137,16 +70,7 @@ class TokenView(viewsets.ViewSet):
         return Response(
             {'confirmation_code': 'Ошибка, неверный confirmation code'},
             status=HTTP_400_BAD_REQUEST
-            )
-
-    @action(methods=['POST'], detail=False, url_path='token')
-    def post(self, request):
-        serializer = TokenSerializer(data=request.data)
-        try:
-            serializer.is_valid(raise_exception=True)
-            return self.get_token(request, serializer.validated_data)
-        except ValidationError as e:
-            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+        )
 
 
 class UserInfoViewSet(ModelViewSet):
@@ -201,7 +125,8 @@ class CategoryViewSet(ListCreateDestroyMixin):
     pagination_class = StandardResultsSetPagination
 
 
-class GenreViewSet(ListCreateDestroyMixin):
+class GenreViewSet(ListCreateDestroyMixin,
+                   viewsets.GenericViewSet):
     """Получаем список всех жанров. Создание/удаление администраторм."""
 
     queryset = Genre.objects.all()
