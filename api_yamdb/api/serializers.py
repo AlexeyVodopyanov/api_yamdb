@@ -39,8 +39,10 @@ class SignupSerializer(serializers.ModelSerializer):
         username = data.get('username')
         email = data.get('email')
 
-        user_with_same_username = User.objects.filter(username=username).first()
-        user_with_same_email = User.objects.filter(email=email).first()
+        user_with_same_username = (User.objects
+                                   .filter(username=username).first())
+        user_with_same_email = (User.objects
+                                .filter(email=email).first())
 
         if user_with_same_username and user_with_same_username.email != email:
             raise serializers.ValidationError(
@@ -49,7 +51,8 @@ class SignupSerializer(serializers.ModelSerializer):
 
         if user_with_same_email and user_with_same_email.username != username:
             raise serializers.ValidationError(
-                {"username": "Этот username уже используется другим пользователем."}
+                {"username": "Этот username уже используется "
+                             "другим пользователем."}
             )
 
         return data
