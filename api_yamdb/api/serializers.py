@@ -1,16 +1,13 @@
 import datetime
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.validators import RegexValidator
 from django.db.models import Avg
 from rest_framework import serializers
 
+from api.constants import REGEX_SIGNS, REGEX_ME
 from reviews.models import Category, Comment, Genre, Review, Title
 
 User = get_user_model()
-
-REGEX_SIGNS = RegexValidator(r'^[\w.@+-]+\Z', 'Поддерживать знак.')
-REGEX_ME = RegexValidator(r'[^m][^e]', 'Пользователя не должен быть "me".')
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -72,7 +69,7 @@ class TitleSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     genre = GenreSerializer(many=True, read_only=True)
     rating = serializers.SerializerMethodField()  # FloatField(read_only=True)
-    year = serializers.IntegerField(max_value=datetime.date.today().year)
+    # year = serializers.IntegerField(max_value=datetime.date.today().year)
 
     class Meta:
         model = Title
@@ -95,14 +92,10 @@ class TitleCreateSerializer(serializers.ModelSerializer):
         slug_field='slug',
         many=True
     )
-    name = serializers.CharField(max_length=256)
 
     class Meta:
         model = Title
-        fields = (
-            'id', 'name', 'year', 'description', 'genre', 'category',
-        )
-
+        fields = '__all__'
 
 class ReviewSerializer(serializers.ModelSerializer):
     author = serializers.SlugRelatedField(read_only=True,
