@@ -45,28 +45,6 @@ class SignupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Username 'me' is not allowed.")
         return value
 
-    '''def validate_email(self, value):  # не было этой ф-ии
-        return value
-
-    def validate(self, data):
-        username = data.get('username')
-        email = data.get('email')
-
-        user_with_same_username = User.objects.filter(username=username).first()
-        user_with_same_email = User.objects.filter(email=email).first()
-
-        if user_with_same_username and user_with_same_username.email != email:
-            raise serializers.ValidationError(
-                {"email": "Этот email уже используется другим пользователем."}
-            )
-
-        if user_with_same_email and user_with_same_email.username != username:
-            raise serializers.ValidationError(
-                {"username": "Этот username уже используется другим пользователем."}
-            )
-
-        return data'''
-
 
 class TokenSerializer(serializers.Serializer):
     username = serializers.CharField(required=True,
@@ -93,7 +71,7 @@ class GenreSerializer(serializers.ModelSerializer):
 class TitleSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     genre = GenreSerializer(many=True, read_only=True)
-    rating = serializers.SerializerMethodField()  # FloatField(read_only=True)  # было SerializerMethodField()
+    rating = serializers.SerializerMethodField()  # FloatField(read_only=True)
     year = serializers.IntegerField(max_value=datetime.date.today().year)
 
     class Meta:
@@ -105,13 +83,6 @@ class TitleSerializer(serializers.ModelSerializer):
     def get_rating(self, obj):
         score = obj.reviews.aggregate(Avg('score'))
         return score['score__avg']
-
-    '''def validate_year(self, value):
-        current_year = datetime.date.today().year
-        if not settings.TITLES_MIN_YEAR <= value <= current_year:
-            raise serializers.ValidationError(
-                'Invalid year. Year must be between {} and {}'.format(settings.TITLES_MIN_YEAR, current_year))
-        return value'''
 
 
 class TitleCreateSerializer(serializers.ModelSerializer):
