@@ -9,8 +9,8 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
-    role = serializers.ChoiceField(choices=['user', 'moderator', 'admin',],
-                                   required=False)
+    role = serializers.ChoiceField(
+        choices=['user', 'moderator', 'admin',], required=False)
 
     class Meta:
         model = User
