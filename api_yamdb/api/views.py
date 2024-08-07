@@ -231,7 +231,7 @@ class TitleViewSet(ModelViewSet):
         return queryset
 
     def get_serializer_class(self):
-        if self.action in ('create', 'partial_update'):
+        if self.action in ('create', 'update', 'partial_update'):
             return TitleCreateSerializer
         return TitleSerializer
 

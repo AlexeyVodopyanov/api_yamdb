@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from api.validators import validate_year
 from api_yamdb.models import BaseModelCategoryGenre, BaseModelReviewComment
 
 
@@ -60,7 +61,12 @@ class Title(models.Model):
     """Модель произведений"""
 
     name = models.CharField(max_length=256, verbose_name='Название')
-    year = models.IntegerField(verbose_name='год')
+    year = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[validate_year],
+        verbose_name='Год'
+    )
     description = models.TextField(
         blank=True,
         null=True,
@@ -68,7 +74,6 @@ class Title(models.Model):
     )
     genre = models.ManyToManyField(
         Genre,
-        through='TitleGenre',
         related_name='titles',
         verbose_name='Жанр'
     )
@@ -87,27 +92,6 @@ class Title(models.Model):
 
     def __str__(self):
         return self.name
-
-
-class TitleGenre(models.Model):
-    """Связующая модель произведений и жанров."""
-
-    title = models.ForeignKey(
-        Title,
-        on_delete=models.CASCADE,
-        related_name='title_genres',
-        verbose_name='Произведение'
-    )
-    genre = models.ForeignKey(
-        Genre,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='title_genres',
-        verbose_name='Жанр'
-    )
-
-    def __str__(self):
-        return f'Жанр - {self.genre}, произведение - {self.title}'
 
 
 class Review(BaseModelReviewComment):
