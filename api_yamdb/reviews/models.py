@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -5,17 +7,19 @@ from django.db import models
 from api.validators import validate_year
 from api_yamdb.models import BaseModelCategoryGenre, BaseModelReviewComment
 
+USER_ROLES = [
+    ('user', 'User'),
+    ('moderator', 'Moderator'),
+    ('admin', 'Admin'),
+]
+
 
 class User(AbstractUser):
     """Модель пользователей"""
 
     email = models.EmailField(max_length=254, unique=True)
     bio = models.TextField(blank=True)
-    role = models.CharField(max_length=20, choices=[
-        ('user', 'User'),
-        ('moderator', 'Moderator'),
-        ('admin', 'Admin'),
-    ], default='user')
+    role = models.CharField(max_length=20, choices=USER_ROLES, default='user')
     confirmation_code = models.CharField(max_length=36, blank=True, null=True)
     groups = models.ManyToManyField(Group,
                                     related_name='reviews_users',
@@ -30,7 +34,8 @@ class User(AbstractUser):
         return self.username
 
     def generate_confirmation_code(self):
-        self.save()
+        """Генерирует новый код подтверждения и возвращает его."""
+        self.confirmation_code = str(uuid.uuid4())
         return self.confirmation_code
 
     class Meta:
@@ -112,7 +117,12 @@ class Review(BaseModelReviewComment):
     score = models.IntegerField(
         verbose_name='Оценка произведения',
         default=1,
-        validators=[MinValueValidator(1), MaxValueValidator(10)]
+        validators=[
+            MinValueValidator(1, message=('Оценка должна быть '
+                                          'больше или равна 1.')),
+            MaxValueValidator(10, message=('Оценка не может '
+                                           'быть больше 10.'))
+        ]
     )
 
     class Meta:

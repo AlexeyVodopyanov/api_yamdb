@@ -4,7 +4,8 @@ from reviews.models import Title
 
 
 class TitleFilter(FilterSet):
-    search = filters.CharFilter(field_name='name', lookup_expr='icontains')
+    search = filters.CharFilter(field_name='name',
+                                lookup_expr='icontains')
 
     class Meta:
         model = Title
