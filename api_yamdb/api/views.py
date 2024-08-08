@@ -128,8 +128,7 @@ class CategoryViewSet(ListCreateDestroyMixin):
     pagination_class = StandardResultsSetPagination
 
 
-class GenreViewSet(ListCreateDestroyMixin,
-                   viewsets.GenericViewSet):
+class GenreViewSet(ListCreateDestroyMixin):
     """Получаем список всех жанров. Создание/удаление администраторм."""
 
     queryset = Genre.objects.all()
@@ -144,19 +143,15 @@ class GenreViewSet(ListCreateDestroyMixin,
 class TitleViewSet(ModelViewSet):
     """Модель по произведениям. Доступна всем, изменения - администратору."""
 
-    queryset = Title.objects.all()
+    queryset = Title.objects.order_by('id').annotate(
+        rating=Avg('reviews__score')
+    )
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
     permission_classes = (IsAdminOrReadOnly,)
     pagination_class = StandardResultsSetPagination
     http_method_names = ['get', 'post', 'patch', 'delete']
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        for title in queryset:
-            score = title.reviews.aggregate(Avg('score'))
-            title.rating = score['score__avg']
-        return queryset
 
     def get_serializer_class(self):
         if self.action in ('create', 'update', 'partial_update'):
@@ -183,9 +178,6 @@ class ReviewViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         title = self.get_title()
-        if Review.objects.filter(title=title,
-                                 author=self.request.user).exists():
-            raise ValidationError('Review already exists')
         serializer.save(title=title, author=self.request.user)
 
 

@@ -3,30 +3,39 @@ import uuid
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Avg
+from django.utils.translation import gettext_lazy as _
 
 from api.validators import validate_year
 from api_yamdb.models import BaseModelCategoryGenre, BaseModelReviewComment
-
-USER_ROLES = [
-    ('user', 'User'),
-    ('moderator', 'Moderator'),
-    ('admin', 'Admin'),
-]
 
 
 class User(AbstractUser):
     """Модель пользователей"""
 
+    class Role(models.TextChoices):
+        USER = 'user', _('User')
+        MODERATOR = 'moderator', _('Moderator')
+        ADMIN = 'admin', _('Admin')
+
     email = models.EmailField(max_length=254, unique=True)
     bio = models.TextField(blank=True)
-    role = models.CharField(max_length=20, choices=USER_ROLES, default='user')
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.USER
+    )
     confirmation_code = models.CharField(max_length=36, blank=True, null=True)
-    groups = models.ManyToManyField(Group,
-                                    related_name='reviews_users',
-                                    blank=True)
-    user_permissions = models.ManyToManyField(Permission,
-                                              related_name='reviews_users',
-                                              blank=True)
+    groups = models.ManyToManyField(
+        Group,
+        related_name='reviews_users',
+        blank=True
+    )
+    user_permissions = models.ManyToManyField(
+        Permission,
+        related_name='reviews_users',
+        blank=True
+    )
 
     REQUIRED_FIELDS = ['email']
 
@@ -93,10 +102,14 @@ class Title(models.Model):
     class Meta:
         verbose_name = 'произведение'
         verbose_name_plural = 'Произведения'
-        ordering = ('name', 'year')
+        ordering = ('id', 'name', 'year')
 
     def __str__(self):
         return self.name
+
+    def get_rating(self):
+        """Вычисляет средний рейтинг произведения."""
+        return self.reviews.aggregate(Avg('score'))['score__avg']
 
 
 class Review(BaseModelReviewComment):
