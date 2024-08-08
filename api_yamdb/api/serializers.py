@@ -125,6 +125,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             if Review.objects.filter(title=title, author=request.user).exists():
                 raise ValidationError('Review already exists')
         return data
+    
 
 
 class CommentSerializer(serializers.ModelSerializer):

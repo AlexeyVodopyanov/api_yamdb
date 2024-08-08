@@ -128,8 +128,7 @@ class CategoryViewSet(ListCreateDestroyMixin):
     pagination_class = StandardResultsSetPagination
 
 
-class GenreViewSet(ListCreateDestroyMixin,
-                   viewsets.GenericViewSet):
+class GenreViewSet(ListCreateDestroyMixin):
     """Получаем список всех жанров. Создание/удаление администраторм."""
 
     queryset = Genre.objects.all()
@@ -144,18 +143,15 @@ class GenreViewSet(ListCreateDestroyMixin,
 class TitleViewSet(ModelViewSet):
     """Модель по произведениям. Доступна всем, изменения - администратору."""
 
-    queryset = Title.objects.all()
+    queryset = Title.objects.order_by('id').annotate(
+        rating=Avg('reviews__score')
+    )
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
     permission_classes = (IsAdminOrReadOnly,)
     pagination_class = StandardResultsSetPagination
     http_method_names = ['get', 'post', 'patch', 'delete']
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        for title in queryset:
-            title.rating = title.get_rating()
-        return queryset
 
     def get_serializer_class(self):
         if self.action in ('create', 'update', 'partial_update'):
