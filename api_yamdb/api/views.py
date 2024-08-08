@@ -154,8 +154,7 @@ class TitleViewSet(ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         for title in queryset:
-            score = title.reviews.aggregate(Avg('score'))
-            title.rating = score['score__avg']
+            title.rating = title.get_rating()
         return queryset
 
     def get_serializer_class(self):
@@ -183,9 +182,6 @@ class ReviewViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         title = self.get_title()
-        if Review.objects.filter(title=title,
-                                 author=self.request.user).exists():
-            raise ValidationError('Review already exists')
         serializer.save(title=title, author=self.request.user)
 
 
