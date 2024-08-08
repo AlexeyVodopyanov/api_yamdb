@@ -7,7 +7,6 @@ from rest_framework import filters, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.serializers import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 from rest_framework.viewsets import ModelViewSet
@@ -151,7 +150,6 @@ class TitleViewSet(ModelViewSet):
     permission_classes = (IsAdminOrReadOnly,)
     pagination_class = StandardResultsSetPagination
     http_method_names = ['get', 'post', 'patch', 'delete']
-
 
     def get_serializer_class(self):
         if self.action in ('create', 'update', 'partial_update'):
