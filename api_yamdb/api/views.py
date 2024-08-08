@@ -3,7 +3,7 @@ from django.core.mail import send_mail
 from django.db.models import Avg
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, status, views, viewsets
+from rest_framework import filters, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -15,10 +15,13 @@ from rest_framework.viewsets import ModelViewSet
 from api.filters import TitleFilter
 from api.mixins import ListCreateDestroyMixin
 from api.paginators import StandardResultsSetPagination
-from api.permissions import IsAdmin, IsAdminOrReadOnly, IsAuthorOrModeratorOrReadOnly
-from api.serializers import (CategorySerializer, CommentSerializer, GenreSerializer,
-                             ReviewSerializer, SignupSerializer, TitleCreateSerializer,
-                             TitleSerializer, TokenSerializer, UserSerializer)
+from api.permissions import (IsAdmin, IsAdminOrReadOnly,
+                             IsAuthorOrModeratorOrReadOnly)
+from api.serializers import (CategorySerializer, CommentSerializer,
+                             GenreSerializer, ReviewSerializer,
+                             SignupSerializer, TitleCreateSerializer,
+                             TitleSerializer, TokenSerializer,
+                             UserSerializer)
 from reviews.models import Category, Comment, Genre, Review, Title, User
 
 
@@ -151,8 +154,7 @@ class TitleViewSet(ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         for title in queryset:
-            score = title.reviews.aggregate(Avg('score'))
-            title.rating = score['score__avg']
+            title.rating = title.get_rating()
         return queryset
 
     def get_serializer_class(self):
@@ -180,9 +182,6 @@ class ReviewViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         title = self.get_title()
-        if Review.objects.filter(title=title,
-                                 author=self.request.user).exists():
-            raise ValidationError('Review already exists')
         serializer.save(title=title, author=self.request.user)
 
 
