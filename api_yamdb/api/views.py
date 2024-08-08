@@ -168,17 +168,9 @@ class ReviewViewSet(ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete']
     pagination_class = StandardResultsSetPagination
 
-    def get_title(self):
-        title_id = self.kwargs.get('title_id')
-        return get_object_or_404(Title, pk=title_id)
-
     def get_queryset(self):
-        title = self.get_title()
+        title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
         return title.reviews.all()
-
-    def perform_create(self, serializer):
-        title = self.get_title()
-        serializer.save(title=title, author=self.request.user)
 
 
 class CommentsViewSet(ModelViewSet):
