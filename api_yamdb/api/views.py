@@ -96,10 +96,8 @@ class UserInfoViewSet(ModelViewSet):
         serializer = UserSerializer(request.user, data=request.data,
                                     partial=True)
         serializer.is_valid(raise_exception=True)
-        if 'role' in request.data:
-            return Response({'role': 'Cannot change role'},
-                            status=HTTP_400_BAD_REQUEST)
-        serializer.save()
+        if not ('role' in request.data):
+            serializer.save()
         return Response(serializer.data)
 
 
@@ -120,11 +118,6 @@ class CategoryViewSet(ListCreateDestroyMixin):
 
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    filter_backends = (filters.SearchFilter,)
-    search_fields = ('name',)
-    lookup_field = 'slug'
-    permission_classes = (IsAdminOrReadOnly,)
-    pagination_class = StandardResultsSetPagination
 
 
 class GenreViewSet(ListCreateDestroyMixin):
@@ -132,11 +125,6 @@ class GenreViewSet(ListCreateDestroyMixin):
 
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
-    filter_backends = (filters.SearchFilter,)
-    search_fields = ('name',)
-    lookup_field = 'slug'
-    permission_classes = (IsAdminOrReadOnly,)
-    pagination_class = StandardResultsSetPagination
 
 
 class TitleViewSet(ModelViewSet):

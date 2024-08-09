@@ -19,9 +19,24 @@ class UserSerializer(serializers.ModelSerializer):
                   'last_name', 'bio', 'role')
         read_only_fields = ('role',)
 
+    def validate_username(self, value):
+        if value == 'me':
+            raise serializers.ValidationError("Username 'me' is not allowed.")
+        return value
+
 
 class SignupSerializer(serializers.ModelSerializer):
-    username = serializers.SlugField(max_length=150)
+    username = serializers.RegexField(
+        regex=r'^[\w.@+-]+$',
+        max_length=150,
+        required=True,
+        help_text='Тербуется  не более 150 символов. '
+                  'Только буквы, цифры и @/./+/-/_.',
+        error_messages={
+            'invalid': ('Значение должны состоять только из буквы или '
+                        'цифры или символов подчёркивания или дефисов.'),
+        }
+    )
     email = serializers.EmailField(max_length=254)
 
     class Meta:
@@ -81,16 +96,13 @@ class GenreSerializer(serializers.ModelSerializer):
 class TitleSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     genre = GenreSerializer(many=True, read_only=True)
-    rating = serializers.SerializerMethodField(read_only=True)
+    rating = serializers.FloatField(read_only=True)  # Изменение тут
 
     class Meta:
         model = Title
         fields = (
             'id', 'name', 'year', 'description', 'genre', 'category', 'rating'
         )
-
-    def get_rating(self, obj):
-        return obj.get_rating()
 
 
 class TitleCreateSerializer(serializers.ModelSerializer):
