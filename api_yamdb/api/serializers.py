@@ -17,7 +17,6 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ('username', 'email', 'first_name',
                   'last_name', 'bio', 'role')
-        read_only_fields = ('role',)
 
     def validate_username(self, value):
         if value == 'me':
@@ -56,18 +55,13 @@ class SignupSerializer(serializers.ModelSerializer):
                                    .filter(username=username).first())
         user_with_same_email = (User.objects
                                 .filter(email=email).first())
-
+        messege_error = {}
         if user_with_same_username and user_with_same_username.email != email:
-            raise serializers.ValidationError(
-                {"email": "Этот email уже используется другим пользователем."}
-            )
-
+            messege_error['username'] = username
         if user_with_same_email and user_with_same_email.username != username:
-            raise serializers.ValidationError(
-                {"username": "Этот username уже используется "
-                             "другим пользователем."}
-            )
-
+            messege_error['email'] = email
+        if len(messege_error) > 0:
+            raise serializers.ValidationError(messege_error)
         return data
 
 
